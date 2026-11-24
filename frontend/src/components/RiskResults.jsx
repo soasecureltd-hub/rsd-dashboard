@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { riskAPI, API_BASE_URL } from '../api/apiClient';
+import { riskAPI } from '../api/apiClient';
 import '../styles/RiskResults.css';
 
 const TOKEN_KEY = 'rsd_token';
@@ -39,7 +39,15 @@ function MiniGauge({ score }) {
   );
 }
 
+function filenameFromHeader(disposition, fallback) {
+  const match = /filename="?([^";]+)"?/i.exec(disposition || '');
+  return match ? match[1] : fallback;
+}
+
 export default function RiskResults({ assessment, anomalyResult, predictions }) {
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState(null);
+
   if (!assessment) return null;
 
   const token = localStorage.getItem(TOKEN_KEY);
@@ -55,9 +63,29 @@ export default function RiskResults({ assessment, anomalyResult, predictions }) 
     .sort(([, a], [, b]) => b - a)
     .slice(0, 3);
 
-  const handleDownloadReport = () => {
-    if (!token) return;
-    window.open(riskAPI.reportUrl(assessment.id, token), '_blank');
+  const handleDownloadReport = async () => {
+    if (!token || downloading) return;
+    setDownloading(true);
+    setDownloadError(null);
+    try {
+      const res = await riskAPI.downloadReport(assessment.id);
+      const filename = filenameFromHeader(
+        res.headers['content-disposition'],
+        `RSD_Report_${assessment.id}.pdf`,
+      );
+      const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setDownloadError('Could not download the report. Please try again.');
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
@@ -171,9 +199,10 @@ export default function RiskResults({ assessment, anomalyResult, predictions }) 
       </div>
 
       <div className="action-buttons">
-        <button onClick={handleDownloadReport} className="btn-primary" disabled={!token}>
-          Download PDF Report
+        <button onClick={handleDownloadReport} className="btn-primary" disabled={!token || downloading}>
+          {downloading ? 'Preparing PDF…' : 'Download PDF Report'}
         </button>
+        {downloadError && <p className="error-message">{downloadError}</p>}
       </div>
     </div>
   );

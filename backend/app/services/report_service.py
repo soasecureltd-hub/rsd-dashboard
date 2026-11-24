@@ -152,7 +152,7 @@ def generate_pdf(assessment, ai_pred=None) -> bytes:
         score = category_scores.get(cat, 0)
         r, g, b = _risk_rgb(score)
         fill = i % 2 == 0
-        pdf.set_fill_color(249, 250, 251 if fill else 255, 255)
+        pdf.set_fill_color(*((249, 250, 251) if fill else (255, 255, 255)))
 
         pdf.set_text_color(17, 24, 39)
         row_y = pdf.get_y()
@@ -249,7 +249,7 @@ def generate_pdf(assessment, ai_pred=None) -> bytes:
                 continue
             r, g, b = _threat_rgb(prob)
             fill = i % 2 == 0
-            pdf.set_fill_color(249, 250, 251 if fill else 255, 255)
+            pdf.set_fill_color(*((249, 250, 251) if fill else (255, 255, 255)))
             pdf.set_text_color(17, 24, 39)
 
             row_y = pdf.get_y()

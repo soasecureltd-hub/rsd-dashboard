@@ -1,11 +1,11 @@
 """Risk assessment routes"""
 import logging
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from app import schemas, crud
 from app.db import get_db
-from app.dependencies import get_current_user, authenticate_token
+from app.dependencies import get_current_user
 from app.services.risk_service import compute_scores, risk_level, run_anomaly_engine, compute_risk_velocity
 from app.services.ml_service import predict as ml_predict
 from app.services.report_service import generate_pdf
@@ -149,15 +149,16 @@ def detect_anomalies(
 @router.get("/assess/{assessment_id}/report")
 def download_report(
     assessment_id: int,
-    token: str = Query(...),
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
-    """Download a PDF report for a completed assessment. Auth via ?token= query param."""
-    user = authenticate_token(token, db)
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid token")
+    """Download a PDF report for a completed assessment.
 
-    db_assessment = crud.get_assessment(db, assessment_id, user_id=user.id)
+    Auth via the standard Authorization: Bearer header. The token is
+    deliberately NOT accepted as a query param: URLs end up in browser
+    history and server/proxy logs.
+    """
+    db_assessment = crud.get_assessment(db, assessment_id, user_id=current_user.id)
     if not db_assessment:
         raise HTTPException(status_code=404, detail="Assessment not found")
     if not db_assessment.category_scores:

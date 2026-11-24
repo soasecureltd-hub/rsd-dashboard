@@ -13,8 +13,8 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 def authenticate_token(token: str, db: Session):
     """Validate a JWT string and return the user, or None if invalid.
 
-    Shared by the header-based dependency and the query-param auth used for
-    WebSocket / MJPEG endpoints that cannot send Authorization headers.
+    Used by get_current_user. Tokens must arrive in the Authorization header;
+    never accept them as URL query params (they leak into logs and history).
     """
     if not token:
         return None
