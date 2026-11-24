@@ -1,270 +1,202 @@
-# Risk-Security Diagnostic - FastAPI + React
+# Risk-Security Diagnostic (RSD) - FastAPI + React
 
-A modern web application for comprehensive facility security risk assessment, real-time camera monitoring, and anomaly detection.
+A web application for facility security risk assessment. Users sign in, fill in
+a security questionnaire, and get a weighted risk score, ML threat predictions,
+anomaly detection and a downloadable PDF report.
+
+> The camera / computer-vision monitoring features now live in a separate app
+> and are no longer part of this repository.
 
 ## Project Structure
 
 ```
-RSD-FastAPI-React/
+RSD/
 ├── backend/
 │   ├── app/
-│   │   ├── __init__.py
 │   │   ├── main.py                 # FastAPI application
-│   │   ├── config.py               # Configuration settings
-│   │   ├── db.py                   # Database setup
+│   │   ├── config.py               # Settings (env / .env)
+│   │   ├── db.py                   # Engine + session
+│   │   ├── migrate.py              # Runs Alembic migrations (python -m app.migrate)
 │   │   ├── models.py               # SQLAlchemy ORM models
 │   │   ├── schemas.py              # Pydantic request/response schemas
-│   │   ├── crud.py                 # Database CRUD operations
+│   │   ├── crud.py                 # Database operations
+│   │   ├── dependencies.py         # JWT auth dependency
 │   │   ├── routes/
-│   │   │   ├── risk.py             # Risk assessment endpoints
-│   │   │   └── camera.py           # Camera health endpoints
+│   │   │   ├── auth.py             # Register / login / me
+│   │   │   └── risk.py             # Assessments, anomalies, predictions, PDF report
 │   │   └── services/
-│   │       ├── risk_service.py     # Risk scoring logic
-│   │       └── camera_service.py   # Camera health analysis
+│   │       ├── risk_service.py     # Scoring, anomaly engine, risk velocity
+│   │       ├── ml_service.py       # Threat prediction model
+│   │       └── report_service.py   # PDF report generation
+│   ├── alembic/                    # Database migrations
+│   ├── tests/                      # pytest suite
 │   ├── requirements.txt
-│   └── .env                        # Environment variables
+│   ├── requirements-dev.txt        # + test dependencies
+│   └── .env.example
 │
 ├── frontend/
 │   ├── src/
-│   │   ├── api/
-│   │   │   └── apiClient.js        # Axios API client
-│   │   ├── components/
-│   │   │   ├── RiskForm.jsx        # Assessment form
-│   │   │   ├── RiskResults.jsx     # Results display
-│   │   │   ├── CameraHealth.jsx    # Camera monitoring
-│   │   │   └── AnomalyReport.jsx   # Anomaly display
-│   │   ├── pages/
-│   │   │   ├── Home.jsx            # Landing page
-│   │   │   └── Dashboard.jsx       # Main dashboard
-│   │   ├── styles/
-│   │   │   └── *.css               # Component styles
-│   │   ├── App.jsx
-│   │   └── index.jsx
-│   ├── public/
-│   │   └── index.html
+│   │   ├── api/apiClient.js        # Axios client (attaches JWT)
+│   │   ├── context/                # AuthContext, AssessmentContext
+│   │   ├── components/             # RiskForm, RiskResults, AIPredictions, AnomalyReport
+│   │   ├── pages/                  # Home, Dashboard, Login, Register
+│   │   └── styles/
 │   ├── package.json
 │   └── vite.config.js
 │
-└── README.md
+├── Dockerfile.backend / Dockerfile.frontend
+├── docker-compose.yml
+└── render.yaml                     # Render deployment
 ```
 
 ## Quick Start
 
-### Backend Setup
+### Backend
 
-1. Navigate to the backend directory:
 ```bash
 cd backend
-```
-
-2. Create a virtual environment:
-```bash
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-3. Install dependencies:
-```bash
+venv\Scripts\activate          # macOS/Linux: source venv/bin/activate
 pip install -r requirements.txt
-```
-
-4. Create a `.env` file (optional, uses defaults):
-```bash
-copy .env.example .env
-```
-
-5. Run the FastAPI server:
-```bash
+copy .env.example .env         # macOS/Linux: cp .env.example .env
+python -m app.migrate          # create / update the database schema
 python -m uvicorn app.main:app --reload
 ```
 
-The backend will be available at `http://localhost:8000`
-API docs available at `http://localhost:8000/docs`
+API: `http://localhost:8000` · Swagger docs: `http://localhost:8000/docs`
 
-### Frontend Setup
+`.env.example` sets `DEBUG=True`, so a temporary JWT secret is generated if
+`JWT_SECRET_KEY` is empty (tokens stop working after a restart). Set a real one
+to stay signed in across restarts.
 
-1. Navigate to the frontend directory:
+### Frontend
+
 ```bash
 cd frontend
-```
-
-2. Install dependencies:
-```bash
 npm install
-```
-
-3. Start the development server:
-```bash
 npm run dev
 ```
 
-The frontend will be available at `http://localhost:5173`
+App: `http://localhost:5173`
+
+### Docker
+
+```bash
+docker-compose up
+```
+
+The backend container runs migrations automatically before starting.
 
 ## Features
 
-### 1. **Risk Assessment**
-- Comprehensive facility security evaluation across 5 major categories:
-  - Physical Security
-  - Access Control
-  - Security Personnel
-  - Incident History
-  - Emergency Preparedness
-- Weighted scoring system with overall risk calculation
-- Risk level badges (LOW, MODERATE, HIGH, CRITICAL)
+### Risk Assessment
+- Questionnaire across five weighted categories: Physical Security (25%),
+  Access Control (30%), Personnel (15%), Incident History (20%),
+  Emergency Preparedness (10%).
+- Every score is risk-oriented: **higher = riskier**. Qualitative answers map
+  Poor=90, Fair=60, Good=30, Excellent=10. Coverage-style percentages
+  (CCTV coverage, CCTV functionality, guard adequacy) are inverted so that
+  better coverage lowers risk.
+- Risk levels: Low (≤40), Moderate (≤60), High (≤80), Critical (>80).
 
-### 2. **Real-time Camera Monitoring**
-- Browser-based camera capture via `getUserMedia`
-- Automatic video quality analysis:
-  - Blur detection (Laplacian variance)
-  - Brightness analysis
-  - Contrast measurement
-  - Noise level estimation
-  - Frame rate monitoring
-  - Lens obstruction detection
-- Health scoring (0-100)
-- Issue detection with severity levels
+### AI Threat Predictions
+- scikit-learn RandomForest multi-label model predicting unauthorized access,
+  insider threat, emergency failure and perimeter breach probabilities.
+- Trained on domain-informed **synthetic** data on first use and cached to
+  `MODEL_PATH`.
 
-### 3. **Anomaly Detection**
-- Z-score based statistical anomaly detection
-- Baseline comparison against historical metrics
-- HIGH/MEDIUM severity classification
-- Detailed human-readable explanations
+### Anomaly Detection
+- Per-feature z-scores against fixed baselines (HIGH / MEDIUM severity, with
+  explanations).
+- Multivariate IsolationForest over category scores, trained on the user's own
+  history once they have 5+ assessments (synthetic baseline before that).
+- Risk velocity: change versus the user's most recent previous assessment.
 
-### 4. **Data Persistence**
-- SQLite database (default, can upgrade to PostgreSQL)
-- Assessment history tracking
-- Camera health history
-- AI prediction storage
+### PDF Report
+- Downloadable report with scores, weaknesses, recommendations and the latest
+  AI prediction.
 
-### 5. **Responsive UI**
-- Mobile-friendly design
-- Intuitive tab-based navigation
-- Real-time chart visualization
-- Progress indicators and loading states
+### Accounts
+- Email + password (argon2), JWT bearer tokens. Each user only sees their own
+  assessments.
 
 ## API Endpoints
 
-### Risk Assessment
-- `POST /api/risk/assess` - Create and score an assessment
-- `GET /api/risk/assess/{id}` - Get assessment details
-- `GET /api/risk/assessments` - List all assessments
-- `POST /api/risk/anomaly/{id}` - Detect anomalies in assessment
+All `/api/risk/*` endpoints require `Authorization: Bearer <token>`.
 
-### Camera Health
-- `POST /api/camera/analyze` - Analyze a camera frame
-- `GET /api/camera/health/{camera_id}` - Get camera status
-- `GET /api/camera/history/{camera_id}` - Get camera health history
+### Auth
+- `POST /api/auth/register` - Create an account
+- `POST /api/auth/login` - OAuth2 form login (used by Swagger)
+- `POST /api/auth/login/json` - JSON login (used by the frontend)
+- `GET /api/auth/me` - Current user
+
+### Risk
+- `POST /api/risk/assess` - Create and score an assessment
+- `GET /api/risk/assess/{id}` - Get an assessment
+- `GET /api/risk/assessments` - List your assessments (newest first)
+- `POST /api/risk/anomaly/{id}` - Run anomaly detection + risk velocity
+- `POST /api/risk/predict/{id}` - Run ML threat predictions
+- `GET /api/risk/assess/{id}/report` - Download the PDF report
 
 ## Configuration
 
-### Backend Environment Variables (`.env`)
-```
-DATABASE_URL=sqlite:///./rsd.db
-DEBUG=True
-API_TITLE=Risk-Security Diagnostic API
-CAMERA_HISTORY_SIZE=100
-MODEL_PATH=security_multiorg_model.pkl
-```
+### Backend (`backend/.env`)
+See `backend/.env.example` for the full list.
 
-### Frontend Environment Variables
-```
-REACT_APP_API_URL=http://localhost:8000/api
-```
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | SQLite locally; Postgres (Supabase) in production. URL-encode special characters in the password. |
+| `DEBUG` | `True` only for local development. |
+| `JWT_SECRET_KEY` | Required (32+ chars) when `DEBUG=False`. |
+| `JWT_ALGORITHM`, `JWT_EXPIRE_MINUTES` | Token settings. |
+| `ALLOWED_ORIGINS` | Comma-separated CORS origins, no brackets or quotes. |
+| `MODEL_PATH` | Where the trained ML model is cached. |
+| `SENTRY_DSN` | Optional error monitoring. |
 
-## Database Models
+### Frontend
+| Variable | Purpose |
+|---|---|
+| `VITE_API_URL` | Backend API base URL (default `http://localhost:8000/api`). Baked in at build time. |
 
-### Assessment
-- `id`: Primary key
-- `facility_name`: Facility name
-- `input_data`: Raw form data (JSON)
-- `category_scores`: Weighted scores by category
-- `contributions`: Score contributions
-- `overall_score`: Final risk score
-- `risk_level`: Risk classification
-- `created_at`, `updated_at`: Timestamps
+## Database
 
-### CameraHealth
-- `id`: Primary key
-- `camera_id`: Camera identifier
-- `health_score`: 0-100 health score
-- `blur_score`, `brightness`, `contrast`, `noise_level`, `fps`: Metrics
-- `issues`: List of detected issues
-- `created_at`: Timestamp
+Alembic owns the schema; the app never creates tables itself.
 
-### AIPrediction
-- `id`: Primary key
-- `assessment_id`: Foreign key to Assessment
-- `input_features`: ML feature vector (JSON)
-- `unauthorized_access_prob`, `insider_threat_prob`, `emergency_failure_prob`, `perimeter_breach_prob`: Predictions
-- `shap_values`: Feature importance explanations
+- Apply migrations: `cd backend && python -m app.migrate`
+- After changing `app/models.py`: `alembic revision --autogenerate -m "describe change"`,
+  review the generated file, then run the migrations.
 
-## Development
+`python -m app.migrate` also adopts databases created by older versions of the
+app (which used `create_all()` and have no Alembic history) by stamping them at
+the matching revision before upgrading.
 
-### Running Both Backend and Frontend
+### Models
+- **User** - `email`, `hashed_password`, `full_name`, `is_active`, `created_at`
+- **Assessment** - owner `user_id`, `facility_name`, raw `input_data` (JSON),
+  `category_scores`, `contributions`, `overall_score`, `risk_level`, timestamps
+- **AIPrediction** - `assessment_id` (foreign key, cascades on delete),
+  `input_features`, the four threat probabilities, `shap_values`, `created_at`
 
-**Terminal 1 (Backend):**
+## Testing
+
 ```bash
 cd backend
-python -m uvicorn app.main:app --reload
+pip install -r requirements-dev.txt
+pytest
 ```
 
-**Terminal 2 (Frontend):**
-```bash
-cd frontend
-npm run dev
-```
+See [DEVELOPMENT.md](DEVELOPMENT.md#testing) for what is covered.
 
-Then visit `http://localhost:5173`
+## Deployment
 
-### Building for Production
-
-**Backend:**
-```bash
-# Use gunicorn for production
-pip install gunicorn
-gunicorn app.main:app -w 4 -b 0.0.0.0:8000
-```
-
-**Frontend:**
-```bash
-npm run build
-# Output in frontend/dist/
-```
-
-## Future Enhancements
-
-- [ ] Multiple camera support with WebSocket streaming
-- [ ] ML model integration (SHAP explanations)
-- [ ] PDF report generation
-- [ ] Email/SMS alerts
-- [ ] Historical trend analysis
-- [ ] User authentication
-- [ ] Role-based access control
-- [ ] Multi-facility support
-- [ ] Custom thresholds configuration
-- [ ] Video recording and playback
+`render.yaml` defines two Render services built from `Dockerfile.backend` and
+`Dockerfile.frontend` (nginx). Set `DATABASE_URL` (Supabase Postgres) in the
+Render dashboard; Render generates `JWT_SECRET_KEY`. Update `ALLOWED_ORIGINS`
+and `VITE_API_URL` to your real service URLs. Migrations run on every backend
+container start.
 
 ## Dependencies
 
-### Backend
-- FastAPI: Web framework
-- SQLAlchemy: ORM
-- OpenCV: Computer vision
-- NumPy/Pandas: Data processing
-- SHAP: ML explainability
-- JobLib: Model serialization
-
-### Frontend
-- React 18: UI framework
-- Axios: HTTP client
-- Recharts: Data visualization
-- Vite: Build tool
-- Lucide React: Icons
-
-## License
-
-See LICENSE file
-
-## Support
-
-For issues or questions, please create an issue in the repository.
+- **Backend:** FastAPI, SQLAlchemy, Alembic, Pydantic, scikit-learn, NumPy,
+  joblib, fpdf, python-jose, passlib (argon2), Sentry SDK
+- **Frontend:** React 18, Vite, Axios, Recharts, Lucide React, Sentry

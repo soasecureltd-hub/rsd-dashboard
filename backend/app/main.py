@@ -2,7 +2,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.db import init_db
 from app.routes import risk
 from app.routes import auth as auth_routes
 
@@ -18,7 +17,7 @@ if settings.SENTRY_DSN:
         environment="development" if settings.DEBUG else "production",
     )
 
-init_db()
+# Schema is managed by Alembic: run `python -m app.migrate` before starting.
 
 app = FastAPI(title=settings.API_TITLE, version=settings.API_VERSION, debug=settings.DEBUG)
 

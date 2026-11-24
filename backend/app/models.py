@@ -46,7 +46,12 @@ class AIPrediction(Base):
     __tablename__ = "ai_predictions"
     
     id = Column(Integer, primary_key=True, index=True)
-    assessment_id = Column(Integer, index=True)
+    assessment_id = Column(
+        Integer,
+        ForeignKey("assessments.id", ondelete="CASCADE", name="fk_ai_predictions_assessment_id_assessments"),
+        index=True,
+        nullable=True,
+    )
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     
     # Input features

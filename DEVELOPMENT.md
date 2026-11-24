@@ -1,25 +1,23 @@
-# RSD-FastAPI-React Development Guide
+# RSD Development Guide
 
-## Getting Started
+## Prerequisites
+- Python 3.11 (matches the Docker image)
+- Node.js 18+
+- npm
 
-### Prerequisites
-- Python 3.9+
-- Node.js 16+
-- npm or yarn
+## Initial Setup
 
-### Initial Setup
-
-1. Clone or navigate to the project directory
-
-2. **Backend Setup:**
+**Backend:**
 ```bash
 cd backend
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
+venv\Scripts\activate          # macOS/Linux: source venv/bin/activate
+pip install -r requirements-dev.txt
+copy .env.example .env         # macOS/Linux: cp .env.example .env
+python -m app.migrate
 ```
 
-3. **Frontend Setup:**
+**Frontend:**
 ```bash
 cd frontend
 npm install
@@ -27,88 +25,92 @@ npm install
 
 ## Running in Development
 
-### Start Backend
+**Backend** (terminal 1):
 ```bash
 cd backend
-source venv/bin/activate
 python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
+API on `http://localhost:8000`, Swagger docs on `http://localhost:8000/docs`.
 
-Backend runs on: `http://localhost:8000`
-Swagger docs: `http://localhost:8000/docs`
-
-### Start Frontend (in another terminal)
+**Frontend** (terminal 2):
 ```bash
 cd frontend
 npm run dev
 ```
+App on `http://localhost:5173`.
 
-Frontend runs on: `http://localhost:5173`
-
-## Using Docker (Optional)
-
-```bash
-docker-compose up
-```
-
-This will start:
-- Backend on `http://localhost:8000`
-- Frontend on `http://localhost:5173`
+**Or with Docker:** `docker-compose up` (runs migrations, then both services).
 
 ## Project Structure Overview
 
 ### Backend (`/backend`)
-- **app/main.py** - FastAPI application entry point
-- **app/routes/** - API endpoint handlers
-- **app/services/** - Business logic (risk scoring, camera analysis)
+- **app/main.py** - FastAPI entry point (CORS, Sentry, routers)
+- **app/routes/** - `auth.py` and `risk.py` endpoint handlers
+- **app/services/** - Scoring + anomaly engine, ML predictions, PDF reports
 - **app/models.py** - Database models
 - **app/schemas.py** - Request/response validation
 - **app/crud.py** - Database operations
-- **app/db.py** - Database configuration
+- **app/db.py** - Engine and session
+- **app/migrate.py** - Applies Alembic migrations
+- **alembic/** - Migration scripts
+- **tests/** - pytest suite
 
 ### Frontend (`/frontend`)
-- **src/pages/** - Full page components (Home, Dashboard)
-- **src/components/** - Reusable components
-- **src/api/** - API client configuration
+- **src/pages/** - Home, Dashboard, Login, Register
+- **src/components/** - RiskForm, RiskResults, AIPredictions, AnomalyReport
+- **src/context/** - Auth and assessment state
+- **src/api/apiClient.js** - Axios client; attaches the JWT and signs out on 401
 - **src/styles/** - Component stylesheets
-- **src/App.jsx** - Root component
+- **src/App.jsx** - Root component and page switching
 
 ## Making Changes
 
 ### Adding a Backend Endpoint
+1. Add the handler to a route file in `app/routes/`.
+2. Define request/response schemas in `schemas.py`.
+3. Protect it with `current_user=Depends(get_current_user)` and scope database
+   queries to `current_user.id`.
+4. Add tests in `backend/tests/`.
+5. Try it at `http://localhost:8000/docs`.
 
-1. Create or update a route file in `app/routes/`
-2. Import necessary services/crud functions
-3. Define Pydantic schemas for request/response in `schemas.py`
-4. Implement endpoint logic
-5. Test via `http://localhost:8000/docs`
+Auth tokens must travel in the `Authorization` header. Never accept them as URL
+query parameters: URLs end up in browser history and server logs.
 
 ### Adding a Frontend Component
-
-1. Create component in `src/components/` or `src/pages/`
-2. Import and use in `App.jsx` or other components
-3. Create corresponding CSS file in `src/styles/`
-4. Use `apiClient` from `src/api/apiClient.js` to call backend
+1. Create the component in `src/components/` or `src/pages/`.
+2. Add its CSS in `src/styles/`.
+3. Call the backend through `riskAPI` / `authAPI` in `src/api/apiClient.js`.
 
 ### Database Schema Changes
+Alembic is the only thing that creates or alters tables.
 
-1. Update models in `app/models.py`
-2. The database will auto-create tables on first run
-3. For migrations: add Alembic when needed
+1. Update models in `app/models.py`.
+2. Generate a migration:
+   ```bash
+   cd backend
+   alembic revision --autogenerate -m "describe the change"
+   ```
+3. Review the generated file in `alembic/versions/` (autogenerate is not
+   perfect; on SQLite use `op.batch_alter_table` for constraint changes).
+4. Apply it: `python -m app.migrate`.
+5. `pytest` - `test_migrations.py` fails if migrations and models disagree.
+
+Migrations always use the app's `DATABASE_URL` (from the environment / `.env`),
+for both `python -m app.migrate` and the `alembic` CLI. Double-check which
+database it points at before running against production.
+
+`camera_health` (left over from the old CV feature) is ignored by autogenerate
+so a migration never drops it.
 
 ## API Communication
 
-Frontend calls backend via `axios` configured in `src/api/apiClient.js`.
-
-Example usage in components:
 ```javascript
 import { riskAPI } from '../api/apiClient';
 
-// Create assessment
-const response = await riskAPI.createAssessment(formData);
-
-// Analyze camera
-const result = await cameraAPI.analyzeFrame(cameraId, frameData);
+const { data: assessment } = await riskAPI.createAssessment(formData);
+const { data: anomalies } = await riskAPI.detectAnomalies(assessment.id);
+const { data: predictions } = await riskAPI.predict(assessment.id);
+const pdf = await riskAPI.downloadReport(assessment.id); // blob response
 ```
 
 ## Testing
@@ -129,67 +131,42 @@ trained once per session.
 - `test_crud.py` – newest-first ordering and latest-prediction lookups
 - `test_auth.py` – register / login / `/me`
 - `test_risk_api.py` – endpoints end to end: ownership, anomalies, predictions, PDF report auth
+- `test_migrations.py` – migrations match the models, legacy databases are adopted, FK behaviour
 
-### Frontend Testing
-```bash
-cd frontend
-npm test
-```
+### Frontend
+There is no frontend test setup yet. Check changes with `npm run build` and in
+the browser.
 
 ## Deployment
 
-### Backend (Gunicorn + Nginx)
-```bash
-pip install gunicorn
-gunicorn app.main:app -w 4 -b 0.0.0.0:8000
-```
-
-### Frontend (Static Build)
-```bash
-npm run build
-# Output in dist/ - serve with nginx/apache
-```
+See [README.md](README.md#deployment). In short: Render builds
+`Dockerfile.backend` and `Dockerfile.frontend`; the backend container runs
+`python -m app.migrate` before starting uvicorn.
 
 ## Troubleshooting
 
 ### Backend won't start
-- Check port 8000 is free
-- Verify Python version (3.9+)
-- Run `pip install -r requirements.txt` again
+- `JWT_SECRET_KEY must be set...` - set it in `.env`, or use `DEBUG=True` locally.
+- Port 8000 already in use.
+- Re-run `pip install -r requirements.txt`.
+
+### "no such table" errors
+- Run `python -m app.migrate`.
+- To reset a local SQLite database: delete `backend/rsd.db`, then run
+  `python -m app.migrate`.
+
+### API calls failing from the frontend
+- Check the backend is running on port 8000.
+- Check `ALLOWED_ORIGINS` in `.env` is comma-separated with no brackets or
+  quotes, and includes the frontend's origin.
+- Check the browser console / network tab.
 
 ### Frontend won't start
-- Clear node_modules: `rm -rf node_modules && npm install`
-- Check Node version (16+)
-- Port 5173 free
-
-### Database errors
-- Delete `rsd.db` to reset
-- Check file permissions
-
-### API calls failing
-- Verify backend is running on 8000
-- Check CORS settings in `app/config.py`
-- Check browser console for error details
-
-## Environment Variables
-
-Create `.env` in backend/ with:
-```
-DATABASE_URL=sqlite:///./rsd.db
-DEBUG=True
-```
-
-## Next Steps
-
-1. ✅ Scaffold complete
-2. Test backend endpoints via Swagger docs
-3. Test frontend forms and components
-4. Integrate ML model (when available)
-5. Add authentication
-6. Deploy to production
+- Reinstall: `rm -rf node_modules && npm install`
+- Check Node version (18+) and that port 5173 is free.
 
 ## Resources
-
-- FastAPI Docs: https://fastapi.tiangolo.com
-- React Docs: https://react.dev
-- SQLAlchemy Docs: https://sqlalchemy.org
+- FastAPI: https://fastapi.tiangolo.com
+- React: https://react.dev
+- SQLAlchemy: https://docs.sqlalchemy.org
+- Alembic: https://alembic.sqlalchemy.org

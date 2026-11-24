@@ -36,7 +36,4 @@ def get_db():
     finally:
         db.close()
 
-
-def init_db():
-    """Initialize database tables"""
-    Base.metadata.create_all(bind=engine)
+# Tables are created and changed only by Alembic migrations (python -m app.migrate).
