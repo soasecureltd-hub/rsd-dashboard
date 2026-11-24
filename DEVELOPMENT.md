@@ -116,9 +116,19 @@ const result = await cameraAPI.analyzeFrame(cameraId, frameData);
 ### Backend Testing
 ```bash
 cd backend
-pip install pytest
+pip install -r requirements-dev.txt
 pytest
 ```
+
+Tests live in `backend/tests/` and run against a throwaway SQLite database and
+ML model in a temp directory (set up in `tests/conftest.py`), so they never
+touch `rsd.db` or your `.env`. The first run takes ~20s because the ML model is
+trained once per session.
+
+- `test_scoring.py` – scoring direction, weights, risk levels, anomaly baselines, risk velocity
+- `test_crud.py` – newest-first ordering and latest-prediction lookups
+- `test_auth.py` – register / login / `/me`
+- `test_risk_api.py` – endpoints end to end: ownership, anomalies, predictions, PDF report auth
 
 ### Frontend Testing
 ```bash
