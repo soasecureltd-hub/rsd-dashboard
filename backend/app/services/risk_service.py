@@ -37,10 +37,24 @@ _synthetic_baseline: Optional[np.ndarray] = None
 
 # ── Scoring ───────────────────────────────────────────────────────────────────
 
-def map_score(value) -> float:
+# Numeric inputs where a HIGHER value means BETTER security (e.g. 90% CCTV
+# coverage). Every score in this system is risk-oriented (higher = worse), so
+# these are inverted (100 - value) before averaging.
+POSITIVE_NUMERIC_FIELDS = {
+    "cctv_coverage",
+    "cctv_functionality",
+    "guard_count_ratio",
+}
+
+
+def map_score(value, field: Optional[str] = None) -> float:
+    """Convert an input value to a 0–100 risk score (higher = riskier)."""
     if isinstance(value, str):
         return float(QUAL_MAPPING.get(value, 50))
-    return float(value)
+    score = float(value)
+    if field in POSITIVE_NUMERIC_FIELDS:
+        return 100.0 - min(max(score, 0.0), 100.0)
+    return score
 
 
 def compute_scores(data: Dict) -> Tuple[Dict, Dict, float]:
@@ -57,7 +71,7 @@ def compute_scores(data: Dict) -> Tuple[Dict, Dict, float]:
     contributions:   Dict[str, float] = {}
 
     for cat, items in data.items():
-        item_scores = [map_score(v) for v in items.values()] if isinstance(items, dict) else [map_score(items)]
+        item_scores = [map_score(v, k) for k, v in items.items()] if isinstance(items, dict) else [map_score(items)]
         avg = sum(item_scores) / len(item_scores) if item_scores else 0
         category_scores[cat] = round(avg, 2)
         contributions[cat]   = round(avg * weights.get(cat, 0), 2)

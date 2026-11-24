@@ -112,10 +112,15 @@ def get_assessment(db: Session, assessment_id: int, user_id: int = None) -> mode
 
 
 def get_all_assessments(db: Session, user_id: int, skip: int = 0, limit: int = 100):
-    """Get a user's assessments with pagination"""
+    """Get a user's assessments with pagination, newest first.
+
+    Callers (e.g. risk velocity) rely on this ordering to find the most
+    recent prior assessment.
+    """
     return (
         db.query(models.Assessment)
         .filter(models.Assessment.user_id == user_id)
+        .order_by(models.Assessment.created_at.desc(), models.Assessment.id.desc())
         .offset(skip)
         .limit(limit)
         .all()
@@ -145,7 +150,10 @@ def create_ai_prediction(
 
 
 def get_ai_prediction(db: Session, assessment_id: int) -> models.AIPrediction:
-    """Get AI prediction for assessment"""
-    return db.query(models.AIPrediction).filter(
-        models.AIPrediction.assessment_id == assessment_id
-    ).first()
+    """Get the most recent AI prediction for an assessment."""
+    return (
+        db.query(models.AIPrediction)
+        .filter(models.AIPrediction.assessment_id == assessment_id)
+        .order_by(models.AIPrediction.created_at.desc(), models.AIPrediction.id.desc())
+        .first()
+    )
