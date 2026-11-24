@@ -1,6 +1,7 @@
 """
 Risk assessment and scoring business logic.
 """
+import zlib
 import numpy as np
 from typing import Dict, List, Optional, Tuple
 
@@ -155,7 +156,9 @@ def _feature_baseline(feature_name: str, mean: float, std: float, n: int = 100) 
     Generate a per-feature baseline (100 samples, feature-seeded for stability).
     Using a per-feature seed ensures baselines are order-independent.
     """
-    seed = hash(feature_name) & 0xFFFFFFFF
+    # crc32, not hash(): str hashing is randomised per process (PYTHONHASHSEED),
+    # which would make baselines differ on every restart.
+    seed = zlib.crc32(feature_name.encode("utf-8"))
     return np.random.default_rng(seed).normal(mean, std, n)
 
 
