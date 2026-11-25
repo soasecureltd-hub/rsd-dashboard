@@ -15,6 +15,10 @@ services:
         value: https://rsd-frontend.onrender.com  # Replace with your actual frontend URL
       - key: SENTRY_DSN
         value: ""                  # Optional: set your Sentry DSN here
+      - key: FORWARDED_ALLOW_IPS
+        value: "*"                 # Render's load balancer sets X-Forwarded-For; trust it so
+                                   # login rate limiting sees real client IPs. Only safe because
+                                   # the container is reachable solely through Render's proxy.
 
   - type: web
     name: rsd-frontend

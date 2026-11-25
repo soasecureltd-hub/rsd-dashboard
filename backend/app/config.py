@@ -5,7 +5,7 @@ import os
 import secrets
 import warnings
 from pydantic import model_validator
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Placeholder shipped in the repo. Treated as "unset" so it can never be used
 # as a real signing key in production.
@@ -44,9 +44,7 @@ class Settings(BaseSettings):
     # Sentry
     SENTRY_DSN: str = ""
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 
     @model_validator(mode="after")
     def _validate_secret(self):

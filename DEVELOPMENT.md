@@ -132,6 +132,10 @@ trained once per session.
 - `test_auth.py` – register / login / `/me`
 - `test_risk_api.py` – endpoints end to end: ownership, anomalies, predictions, PDF report auth
 - `test_migrations.py` – migrations match the models, legacy databases are adopted, FK behaviour
+- `test_validation.py` – input validation and pagination bounds
+- `test_ml.py` – threat estimates are graded, follow the documented rules, retrain when outdated
+- `test_simulation.py` – What-If scenarios use real scoring and save nothing
+- `test_security.py` – password/JWT compatibility and tampering, inactive accounts, login rate limiting
 
 ### Frontend
 There is no frontend test setup yet. Check changes with `npm run build` and in

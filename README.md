@@ -130,9 +130,17 @@ The backend container runs migrations automatically before starting.
 - Downloadable report with scores, weaknesses, recommendations and the latest
   AI prediction.
 
-### Accounts
-- Email + password (argon2), JWT bearer tokens. Each user only sees their own
-  assessments.
+### Accounts & Security
+- Email + password hashed with argon2id (`argon2-cffi`), HS256 JWT bearer
+  tokens (`PyJWT`). Each user only sees their own assessments; deactivated
+  accounts (`is_active = false`) lose access immediately.
+- Failed logins are rate limited (`app/rate_limit.py`): 5 per account per IP,
+  30 per IP, 50 per account, in a 15-minute window, answered with `429` and
+  `Retry-After`. Counters are in memory, per process.
+- Behind a proxy, uvicorn runs with `--proxy-headers`; set `FORWARDED_ALLOW_IPS`
+  to the proxy's address (`render.yaml` uses `*`) so limits apply to real
+  client IPs.
+- CI runs `pip-audit` on the backend requirements.
 
 ## API Endpoints
 
@@ -214,5 +222,5 @@ container start.
 ## Dependencies
 
 - **Backend:** FastAPI, SQLAlchemy, Alembic, Pydantic, scikit-learn, NumPy,
-  joblib, fpdf, python-jose, passlib (argon2), Sentry SDK
+  joblib, fpdf, PyJWT, argon2-cffi, Sentry SDK
 - **Frontend:** React 18, Vite, Axios, Recharts, Lucide React, Sentry

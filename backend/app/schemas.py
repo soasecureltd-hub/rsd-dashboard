@@ -1,7 +1,7 @@
 """
 Pydantic schemas for request/response validation
 """
-from pydantic import BaseModel, EmailStr, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints
 from typing import Annotated, Dict, List, Literal, Optional
 from datetime import datetime
 
@@ -75,8 +75,7 @@ class RiskAssessmentResponse(BaseModel):
     # What-If simulator). Same shape as RiskAssessmentInput.
     input_data: Optional[Dict] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ============ Auth Schemas ============
@@ -109,8 +108,7 @@ class UserResponse(BaseModel):
     is_active: bool
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ============ AI Prediction Schemas ============

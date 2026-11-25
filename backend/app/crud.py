@@ -4,13 +4,7 @@ CRUD operations for database models
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 from app import models, schemas
-from passlib.context import CryptContext
-
-# argon2id only: no 72-byte password limit, OWASP-recommended, and it avoids
-# the passlib<->bcrypt 4.x incompatibility that raised "password cannot be
-# longer than 72 bytes". verify_and_update lets us bump argon2 cost params
-# transparently on future logins.
-pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
+from app.security import hash_password, spend_verify_time, verify_password
 
 
 def get_user_by_email(db: Session, email: str):
@@ -20,7 +14,7 @@ def get_user_by_email(db: Session, email: str):
 
 def create_user(db: Session, user: schemas.UserCreate):
     """Hash password and persist new user."""
-    hashed = pwd_context.hash(user.password)
+    hashed = hash_password(user.password)
     db_user = models.User(
         email=user.email,
         hashed_password=hashed,
@@ -33,16 +27,18 @@ def create_user(db: Session, user: schemas.UserCreate):
 
 
 def authenticate_user(db: Session, email: str, password: str):
-    """Return user if credentials are valid, else None.
+    """Return the user if the credentials are valid and the account is active, else None.
 
-    Uses verify_and_update so legacy bcrypt hashes are re-hashed to argon2
-    on a successful login.
+    Unknown emails still do a full password verification so response time
+    doesn't reveal which emails are registered. Hashes with outdated argon2
+    parameters are upgraded transparently on a successful login.
     """
     user = get_user_by_email(db, email)
     if not user:
+        spend_verify_time(password)
         return None
-    valid, new_hash = pwd_context.verify_and_update(password, user.hashed_password)
-    if not valid:
+    valid, new_hash = verify_password(password, user.hashed_password)
+    if not valid or not user.is_active:
         return None
     if new_hash:
         user.hashed_password = new_hash

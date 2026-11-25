@@ -20,6 +20,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from app.db import Base, SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
+from app.rate_limit import login_limiter  # noqa: E402
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -33,6 +34,14 @@ def _clean_db():
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     yield
+
+
+@pytest.fixture(autouse=True)
+def _fresh_login_limiter():
+    """Failed-login counters are global; never let one test's failures leak into another."""
+    login_limiter.reset()
+    yield
+    login_limiter.reset()
 
 
 @pytest.fixture

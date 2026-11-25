@@ -91,3 +91,13 @@ def test_legacy_unversioned_model_file_is_retrained(tmp_path, monkeypatch):
 
     ml._get_model()
     assert joblib.load(path)["version"] == ml.MODEL_VERSION
+
+
+def test_model_from_other_sklearn_version_is_retrained(tmp_path, monkeypatch):
+    path = tmp_path / "other-sklearn.pkl"
+    joblib.dump({"version": ml.MODEL_VERSION, "sklearn": "0.0.1", "model": object()}, path)
+    monkeypatch.setattr(ml.settings, "MODEL_PATH", str(path))
+    monkeypatch.setattr(ml, "_model", None)
+
+    ml._get_model()
+    assert joblib.load(path)["sklearn"] == ml._sklearn_version()

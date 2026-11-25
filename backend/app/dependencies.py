@@ -1,31 +1,27 @@
 """Shared FastAPI dependencies"""
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
 from sqlalchemy.orm import Session
-from app.config import settings
 from app.db import get_db
 from app import crud
+from app.security import decode_access_token
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 
 def authenticate_token(token: str, db: Session):
-    """Validate a JWT string and return the user, or None if invalid.
+    """Validate a JWT string and return the active user, or None.
 
     Used by get_current_user. Tokens must arrive in the Authorization header;
     never accept them as URL query params (they leak into logs and history).
     """
-    if not token:
+    email = decode_access_token(token)
+    if email is None:
         return None
-    try:
-        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-        email = payload.get("sub")
-        if email is None:
-            return None
-    except JWTError:
-        return None
-    return crud.get_user_by_email(db, email=email)
+    user = crud.get_user_by_email(db, email=email)
+    if user is None or not user.is_active:
+        return None  # deactivated accounts lose access immediately
+    return user
 
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
@@ -39,3 +35,12 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     if user is None:
         raise credentials_exception
     return user
+
+
+def client_ip(request: Request) -> str:
+    """Client address for rate limiting.
+
+    Behind a proxy (Render), uvicorn runs with --proxy-headers and
+    FORWARDED_ALLOW_IPS so request.client is the real client, not the proxy.
+    """
+    return request.client.host if request.client else "unknown"

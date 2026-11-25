@@ -133,6 +133,11 @@ def _generate_training_data(n: int = 6000, seed: int = 42):
     return _engineer_features(raw).astype(np.float32), y
 
 
+def _sklearn_version() -> str:
+    import sklearn
+    return sklearn.__version__
+
+
 def _train_and_save() -> object:
     from sklearn.ensemble import RandomForestClassifier
     from sklearn.multioutput import MultiOutputClassifier
@@ -151,7 +156,10 @@ def _train_and_save() -> object:
     )
     model.fit(X, y)
 
-    joblib.dump({"version": MODEL_VERSION, "model": model}, Path(settings.MODEL_PATH))
+    joblib.dump(
+        {"version": MODEL_VERSION, "sklearn": _sklearn_version(), "model": model},
+        Path(settings.MODEL_PATH),
+    )
     logger.info("[ml_service] model v%s trained and saved → %s", MODEL_VERSION, settings.MODEL_PATH)
     return model
 
@@ -166,6 +174,9 @@ def _get_model():
             bundle = joblib.load(model_path)
             if not isinstance(bundle, dict) or bundle.get("version") != MODEL_VERSION:
                 raise ValueError("outdated model version")
+            # Pickled models are only reliable on the scikit-learn version that made them.
+            if bundle.get("sklearn") != _sklearn_version():
+                raise ValueError(f"trained with scikit-learn {bundle.get('sklearn')}")
             bundle["model"].predict(np.zeros((1, len(FEATURE_NAMES)), dtype=np.float32))
             _model = bundle["model"]
             logger.info("[ml_service] model v%s loaded from %s", MODEL_VERSION, model_path)
