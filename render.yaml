@@ -1,5 +1,6 @@
-# Render blueprint: backend API only. The frontend is deployed on Vercel
-# (see DEPLOY.md and frontend/vercel.json).
+# Render Blueprint for the backend API. Blueprints are a paid Render feature;
+# on the free plan create a Web Service manually with the same settings
+# (DEPLOY.md, step 2). The frontend is deployed on Vercel (frontend/vercel.json).
 services:
   - type: web
     name: rsd-backend
@@ -12,6 +13,8 @@ services:
         generateValue: true        # Render generates a secure random value on first deploy
       - key: DEBUG
         value: false
+      - key: PORT
+        value: 8000                # the port uvicorn listens on (Dockerfile.backend)
       - key: DATABASE_URL
         sync: false                # Set in the Render dashboard (Supabase *session pooler* URL). Never commit it.
       - key: ALLOWED_ORIGINS
