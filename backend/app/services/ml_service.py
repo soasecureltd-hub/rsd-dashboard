@@ -1,17 +1,34 @@
 """
-ML service for risk predictions using scikit-learn.
+Threat likelihood estimates (scikit-learn RandomForest).
 
-RandomForest multi-label classifier trained on domain-informed synthetic data
-spanning six facility risk archetypes with feature engineering.
+IMPORTANT — what this model is and is not
+-----------------------------------------
+There is no real incident data yet. The model is trained on synthetic
+facilities whose labels come from expert-written rules (THREAT_DRIVERS below):
+each threat has a risk index over the category scores, and a logistic curve
+turns that index into a probability. Training labels are *sampled* from that
+probability, so the model learns graded likelihoods rather than a yes/no
+cliff.
+
+The outputs are therefore a smoothed encoding of those rules — useful as
+relative indicators ("this facility's insider-threat exposure is higher than
+its perimeter exposure"), not as measured real-world probabilities. The API
+and UI present them as estimates for that reason.
 """
-import numpy as np
-import joblib
 import logging
 from pathlib import Path
 from typing import Dict
+
+import joblib
+import numpy as np
+
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+# Bump whenever the training data, labels or model change, so a cached model
+# file from an older version is retrained instead of silently reused.
+MODEL_VERSION = 2
 
 FEATURE_NAMES = [
     "overall_score",
@@ -31,7 +48,33 @@ TARGET_NAMES = [
     "perimeter_breach",
 ]
 
+# Column positions in the raw (n, 6) score array.
+_COL = {"overall": 0, "physical": 1, "access": 2, "personnel": 3, "incident": 4, "emergency": 5}
+
+# Expert rules: which category scores drive each threat, and how much.
+# Weights per threat sum to 1, so each index is on the same 0-100 risk scale.
+THREAT_DRIVERS = {
+    "unauthorized_access": {"access": 0.6, "incident": 0.4},
+    "insider_threat":      {"personnel": 0.6, "access": 0.4},
+    "emergency_failure":   {"emergency": 0.7, "overall": 0.3},
+    "perimeter_breach":    {"physical": 0.6, "incident": 0.4},
+}
+
+# Logistic curve from risk index to probability:
+#   index 30 (well secured) ≈ 4%,  45 ≈ 22%,  55 = 50%,  65 ≈ 78%,  80 ≈ 96%
+RISK_MIDPOINT = 55.0
+RISK_SPREAD = 8.0
+
 _model = None
+
+
+def threat_probabilities(raw: np.ndarray) -> np.ndarray:
+    """The rule-based target probabilities for a (n, 6) raw score array → (n, 4)."""
+    columns = []
+    for target in TARGET_NAMES:
+        index = sum(w * raw[:, _COL[name]] for name, w in THREAT_DRIVERS[target].items())
+        columns.append(1.0 / (1.0 + np.exp(-(index - RISK_MIDPOINT) / RISK_SPREAD)))
+    return np.column_stack(columns)
 
 
 def _engineer_features(raw: np.ndarray) -> np.ndarray:
@@ -39,8 +82,6 @@ def _engineer_features(raw: np.ndarray) -> np.ndarray:
     Add pairwise interaction features to a (n, 6) input array.
 
     Columns: overall, physical, access, personnel, incident, emergency
-    Interactions encode compound risk — e.g. weak access control becomes
-    far more dangerous when incident history is also high.
     """
     physical  = raw[:, 1]
     access    = raw[:, 2]
@@ -54,108 +95,65 @@ def _engineer_features(raw: np.ndarray) -> np.ndarray:
     return np.column_stack([raw, access_x_incident, physical_x_personnel])
 
 
-def _generate_training_data(n: int = 1500):
+def _sample_raw_scores(rng: np.random.Generator, n: int) -> np.ndarray:
+    """Synthetic facilities as (n, 6) raw scores: overall + five categories.
+
+    Half come from realistic archetypes (categories move together), half are
+    uniform over the whole 10-90 range so every combination is covered.
     """
-    Domain-informed synthetic training data across six facility archetypes.
-
-    Higher score = higher risk, matching QUAL_MAPPING (Poor=90, Excellent=10).
-
-    Archetypes (mean_physical, mean_access, mean_personnel, mean_incident, mean_emergency):
-      1. Well-secured: all dimensions low-risk
-      2. Moderate overall risk
-      3. High risk: aging infrastructure
-      4. Access/incident failure focus
-      5. Personnel + emergency preparedness weak
-      6. Critical: every dimension poor
-    """
-    rng = np.random.default_rng(42)
-
     archetypes = [
-        (20, 15, 25, 20, 15),
-        (40, 50, 35, 45, 40),
-        (65, 70, 55, 60, 55),
-        (25, 75, 65, 70, 30),
-        (72, 38, 72, 48, 78),
-        (80, 82, 78, 80, 82),
+        (20, 15, 25, 20, 15),  # well secured
+        (40, 50, 35, 45, 40),  # moderate
+        (65, 70, 55, 60, 55),  # high risk, ageing infrastructure
+        (25, 75, 65, 70, 30),  # access / incident failure
+        (72, 38, 72, 48, 78),  # personnel + emergency weak
+        (80, 82, 78, 80, 82),  # critical
     ]
+    n_arch = n // 2
+    per = n_arch // len(archetypes)
+    segments = [
+        np.column_stack([rng.normal(m, max(m * 0.2, 5), per) for m in means])
+        for means in archetypes
+    ]
+    segments.append(rng.uniform(10, 90, (n - per * len(archetypes), 5)))
+    categories = np.vstack(segments).clip(10, 90)
 
-    per_archetype = n // len(archetypes)
-    remainder = n - per_archetype * len(archetypes)
-    segments = []
+    # Weighted average mirrors compute_scores weights
+    weights = np.array([0.25, 0.30, 0.15, 0.20, 0.10])
+    overall = (categories * weights).sum(axis=1, keepdims=True)
+    return np.hstack([overall, categories]).astype(np.float32)
 
-    for i, means in enumerate(archetypes):
-        count = per_archetype + (1 if i < remainder else 0)
-        stds = tuple(max(m * 0.2, 5) for m in means)
-        seg = np.column_stack([
-            rng.normal(m, s, count).clip(10, 90)
-            for m, s in zip(means, stds)
-        ])
-        # Weighted average mirrors compute_scores weights
-        weights = np.array([0.25, 0.30, 0.15, 0.20, 0.10])
-        overall = (seg * weights).sum(axis=1, keepdims=True)
-        segments.append(np.hstack([overall, seg]))
 
-    X = np.vstack(segments).astype(np.float32)
-    X_eng = _engineer_features(X)
-    noise = rng.normal(0, 3, (len(X), 4))
-
-    physical  = X[:, 1]
-    access    = X[:, 2]
-    personnel = X[:, 3]
-    incident  = X[:, 4]
-    emergency = X[:, 5]
-    overall   = X[:, 0]
-
-    # Labels incorporate interaction effects, not just single-feature thresholds
-    y = np.column_stack([
-        # Unauthorized access: access control + incident history compound
-        ((access + incident * 0.5 + noise[:, 0]) > 58).astype(int),
-        # Insider threat: poor personnel quality + lax access control
-        ((personnel + access * 0.4 + noise[:, 1]) > 60).astype(int),
-        # Emergency failure: preparedness weakness amplified by overall risk
-        ((emergency + overall * 0.25 + noise[:, 2]) > 62).astype(int),
-        # Perimeter breach: physical security degradation + incident history
-        ((physical + incident * 0.4 + noise[:, 3]) > 56).astype(int),
-    ])
-
-    return X_eng.astype(np.float32), y
+def _generate_training_data(n: int = 6000, seed: int = 42):
+    """Synthetic features and labels; labels are Bernoulli draws from
+    threat_probabilities(), so the classifier learns graded likelihoods."""
+    rng = np.random.default_rng(seed)
+    raw = _sample_raw_scores(rng, n)
+    y = (rng.random((n, len(TARGET_NAMES))) < threat_probabilities(raw)).astype(int)
+    return _engineer_features(raw).astype(np.float32), y
 
 
 def _train_and_save() -> object:
-    from sklearn.pipeline import Pipeline
-    from sklearn.preprocessing import StandardScaler
     from sklearn.ensemble import RandomForestClassifier
     from sklearn.multioutput import MultiOutputClassifier
-    from sklearn.model_selection import train_test_split
 
     X, y = _generate_training_data()
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42
+    # No class_weight="balanced": reweighting classes distorts predicted
+    # probabilities, and probabilities are the whole output here.
+    # Large leaves average many sampled labels → smooth probability estimates.
+    model = MultiOutputClassifier(
+        RandomForestClassifier(
+            n_estimators=200,
+            min_samples_leaf=30,
+            random_state=42,
+            n_jobs=-1,
+        )
     )
+    model.fit(X, y)
 
-    pipeline = Pipeline([
-        ("scaler", StandardScaler()),
-        ("clf", MultiOutputClassifier(
-            RandomForestClassifier(
-                n_estimators=200,
-                max_depth=8,
-                min_samples_leaf=4,
-                class_weight="balanced",
-                random_state=42,
-                n_jobs=-1,
-            )
-        )),
-    ])
-    pipeline.fit(X_train, y_train)
-
-    train_acc = pipeline.score(X_train, y_train)
-    test_acc  = pipeline.score(X_test,  y_test)
-    logger.info("[ml_service] train_acc=%.3f  test_acc=%.3f", train_acc, test_acc)
-
-    model_path = Path(settings.MODEL_PATH)
-    joblib.dump(pipeline, model_path)
-    logger.info("[ml_service] model saved → %s", model_path)
-    return pipeline
+    joblib.dump({"version": MODEL_VERSION, "model": model}, Path(settings.MODEL_PATH))
+    logger.info("[ml_service] model v%s trained and saved → %s", MODEL_VERSION, settings.MODEL_PATH)
+    return model
 
 
 def _get_model():
@@ -165,13 +163,14 @@ def _get_model():
     model_path = Path(settings.MODEL_PATH)
     if model_path.exists():
         try:
-            candidate = joblib.load(model_path)
-            # Sanity-check: new model expects 8 features (6 raw + 2 interactions)
-            candidate.predict(np.zeros((1, len(FEATURE_NAMES)), dtype=np.float32))
-            _model = candidate
-            logger.info("[ml_service] model loaded from %s", model_path)
-        except Exception:
-            logger.warning("[ml_service] cached model incompatible, retraining…")
+            bundle = joblib.load(model_path)
+            if not isinstance(bundle, dict) or bundle.get("version") != MODEL_VERSION:
+                raise ValueError("outdated model version")
+            bundle["model"].predict(np.zeros((1, len(FEATURE_NAMES)), dtype=np.float32))
+            _model = bundle["model"]
+            logger.info("[ml_service] model v%s loaded from %s", MODEL_VERSION, model_path)
+        except Exception as exc:
+            logger.warning("[ml_service] cached model unusable (%s), retraining…", exc)
             _model = _train_and_save()
     else:
         _model = _train_and_save()
@@ -180,15 +179,15 @@ def _get_model():
 
 def predict(assessment_data: Dict) -> Dict:
     """
-    Predict threat probabilities from assessment scores.
+    Estimate threat likelihoods from assessment scores.
 
     Args:
         assessment_data:
             overall_score (float) and category_scores (dict of category → float)
 
     Returns:
-        Dict with keys: unauthorized_access, insider_threat, emergency_failure,
-        perimeter_breach (all floats in [0, 1]) and confidence (float in [0, 1]).
+        Dict with keys unauthorized_access, insider_threat, emergency_failure,
+        perimeter_breach — each an estimated likelihood in [0, 1].
     """
     model = _get_model()
     cat = assessment_data.get("category_scores", {})
@@ -202,21 +201,9 @@ def predict(assessment_data: Dict) -> Dict:
         cat.get("Emergency Preparedness", 50.0),
     ]], dtype=np.float32)
 
-    features = _engineer_features(raw)
-
     # MultiOutputClassifier.predict_proba returns list of (n_samples, n_classes) arrays
-    probas = model.predict_proba(features)
-    predictions = {
+    probas = model.predict_proba(_engineer_features(raw))
+    return {
         TARGET_NAMES[i]: round(float(probas[i][0][1]), 3)
         for i in range(len(TARGET_NAMES))
     }
-
-    predictions["confidence"] = confidence_of(predictions)
-    return predictions
-
-
-def confidence_of(probabilities: Dict) -> float:
-    """Mean distance of the four threat probabilities from the 0.5 decision
-    boundary, scaled to [0, 1]. (Not stored; recomputed from stored probs.)"""
-    values = [float(probabilities.get(name) or 0.0) for name in TARGET_NAMES]
-    return round(float(np.mean([abs(v - 0.5) * 2 for v in values])), 3)

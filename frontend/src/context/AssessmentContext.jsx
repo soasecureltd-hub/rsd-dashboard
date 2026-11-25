@@ -5,7 +5,7 @@ const AssessmentContext = createContext(null);
 const initialState = {
   assessment: null,
   anomalyResult: null,   // full object: {anomalies, multivariate_anomaly, anomaly_score, risk_velocity}
-  predictions: null,     // full object including confidence
+  predictions: null,     // estimated threat likelihoods
   loading: false,
   error: null,
   activeTab: 'input',

@@ -218,10 +218,20 @@ def generate_pdf(assessment, ai_pred=None) -> bytes:
 
         pdf.set_text_color(17, 24, 39)
         pdf.set_font("Arial", "B", 12)
-        pdf.cell(0, 8, "AI Risk Predictions (RandomForest)", ln=True)
+        pdf.cell(0, 8, "Estimated Threat Likelihood (AI model)", ln=True)
         pdf.set_draw_color(229, 231, 235)
         pdf.line(15, pdf.get_y(), 15 + page_w, pdf.get_y())
-        pdf.ln(3)
+        pdf.ln(2)
+        pdf.set_font("Arial", "I", 8)
+        pdf.set_text_color(107, 114, 128)
+        pdf.multi_cell(
+            0, 4,
+            "Estimates from a model trained on synthetic facilities labelled with expert "
+            "rules, not on real incident records. Use them to compare threats, not as "
+            "measured probabilities.",
+        )
+        pdf.set_text_color(17, 24, 39)
+        pdf.ln(2)
 
         threats = [
             ("Unauthorized Access", ai_pred.unauthorized_access_prob),
@@ -274,6 +284,9 @@ def generate_pdf(assessment, ai_pred=None) -> bytes:
             pdf.cell(col_bar2, 7, "", border=0, ln=True, fill=False)
 
     # ── Footer ───────────────────────────────────────────────────────────────
+    # The footer sits inside the bottom margin; without this, fpdf's automatic
+    # page break fires on it and every report ended with a blank extra page.
+    pdf.set_auto_page_break(False)
     pdf.set_y(-18)
     pdf.set_draw_color(203, 213, 225)
     pdf.line(15, pdf.get_y(), 15 + page_w, pdf.get_y())

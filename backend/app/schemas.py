@@ -113,11 +113,15 @@ class UserResponse(BaseModel):
 # ============ AI Prediction Schemas ============
 
 class AIPredictionResponse(BaseModel):
+    """Estimated threat likelihoods in [0, 1].
+
+    These come from a model trained on synthetic, rule-labelled data (see
+    services/ml_service.py) - relative indicators, not measured probabilities.
+    """
     unauthorized_access: float
     insider_threat: float
     emergency_failure: float
     perimeter_breach: float
-    confidence: float = 0.0
     risk_labels: List[str] = Field(default=[
         "Unauthorized Access",
         "Insider Threat",

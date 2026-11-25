@@ -36,7 +36,7 @@
   border-bottom-color: var(--primary);
 }
 
-/* Badge on tab labels showing count or confidence */
+/* Badge on tab labels showing a count */
 .tab-badge {
   display: inline-flex;
   align-items: center;

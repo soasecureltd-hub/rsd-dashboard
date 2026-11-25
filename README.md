@@ -99,11 +99,16 @@ The backend container runs migrations automatically before starting.
   better coverage lowers risk.
 - Risk levels: Low (≤40), Moderate (≤60), High (≤80), Critical (>80).
 
-### AI Threat Predictions
-- scikit-learn RandomForest multi-label model predicting unauthorized access,
-  insider threat, emergency failure and perimeter breach probabilities.
-- Trained on domain-informed **synthetic** data on first use and cached to
-  `MODEL_PATH`.
+### AI Threat Estimates
+- Estimated likelihood of unauthorized access, insider threat, emergency
+  failure and perimeter breach (scikit-learn RandomForest).
+- **There is no real incident data yet.** The model is trained on synthetic
+  facilities labelled by expert rules (`THREAT_DRIVERS` in
+  `services/ml_service.py`): each threat has a risk index over the category
+  scores, mapped to a probability by a logistic curve. Treat the outputs as
+  relative indicators, not measured probabilities; the UI and PDF say so.
+- Trained on first use and cached to `MODEL_PATH` with a version number, so
+  changing the model (`MODEL_VERSION`) retrains automatically.
 
 ### Anomaly Detection
 - Per-feature z-scores against fixed baselines (HIGH / MEDIUM severity, with

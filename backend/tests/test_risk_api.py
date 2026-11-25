@@ -94,9 +94,9 @@ def test_predictions(client, make_user, create_assessment):
     r = client.post(f"/api/risk/predict/{a_id}", headers=headers)
     assert r.status_code == 200
     body = r.json()
-    for key in ("unauthorized_access", "insider_threat", "emergency_failure",
-                "perimeter_breach", "confidence"):
+    for key in ("unauthorized_access", "insider_threat", "emergency_failure", "perimeter_breach"):
         assert 0 <= body[key] <= 1
+    assert "confidence" not in body
 
 
 # ── PDF report ────────────────────────────────────────────────────────────────
@@ -117,6 +117,8 @@ def test_report_download(client, make_user, create_assessment, with_prediction):
     assert r.headers["content-type"] == "application/pdf"
     assert r.headers["content-disposition"] == f'attachment; filename="RSD_Report_HQ_Main_{a_id}.pdf"'
     assert r.content.startswith(b"%PDF")
+    # Single page: the footer used to trigger an automatic page break.
+    assert r.content.count(b"/Type /Page\n") == 1, "report should be one page"
 
 
 def test_report_rejects_token_in_query_string(client, make_user, create_assessment):
@@ -162,7 +164,7 @@ def test_get_prediction_returns_latest_without_creating_rows(client, db, make_us
     for _ in range(3):
         got = client.get(f"/api/risk/predict/{a_id}", headers=headers)
         assert got.status_code == 200
-        assert got.json() == ran  # same probabilities and recomputed confidence
+        assert got.json() == ran  # same stored probabilities
     assert db.query(models.AIPrediction).filter_by(assessment_id=a_id).count() == 1
 
 

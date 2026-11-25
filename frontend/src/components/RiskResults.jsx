@@ -42,6 +42,18 @@ export default function RiskResults({ assessment, anomalyResult, predictions }) 
 
   const token = localStorage.getItem(TOKEN_KEY);
 
+  const THREAT_LABELS = {
+    unauthorized_access: 'Unauthorized access',
+    insider_threat: 'Insider threat',
+    emergency_failure: 'Emergency failure',
+    perimeter_breach: 'Perimeter breach',
+  };
+  const topThreat = predictions
+    ? Object.entries(THREAT_LABELS)
+      .map(([key, label]) => ({ label, value: Number(predictions[key]) || 0 }))
+      .sort((a, b) => b.value - a.value)[0]
+    : null;
+
   const chartData = Object.entries(assessment.category_scores || {}).map(([name, value]) => ({
     name: name.replace(' ', '\n'),
     score: value,
@@ -101,9 +113,9 @@ export default function RiskResults({ assessment, anomalyResult, predictions }) 
         <div className="insight-strip">
           {predictions && (
             <div className="insight-item">
-              <span className="insight-label">Model Confidence</span>
-              <span className="insight-value" style={{ color: RISK_COLOR(100 - predictions.confidence * 100) }}>
-                {Math.round((predictions.confidence || 0) * 100)}%
+              <span className="insight-label">Highest Estimated Threat</span>
+              <span className="insight-value">
+                {topThreat.label} · {Math.round(topThreat.value * 100)}%
               </span>
             </div>
           )}

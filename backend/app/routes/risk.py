@@ -7,7 +7,7 @@ from app import schemas, crud
 from app.db import get_db
 from app.dependencies import get_current_user
 from app.services.risk_service import compute_scores, risk_level, run_anomaly_engine, compute_risk_velocity
-from app.services.ml_service import predict as ml_predict, confidence_of
+from app.services.ml_service import predict as ml_predict
 from app.services.report_service import generate_pdf
 
 logger = logging.getLogger(__name__)
@@ -194,13 +194,12 @@ def get_latest_prediction(
     pred = crud.get_ai_prediction(db, assessment_id)
     if not pred:
         raise HTTPException(status_code=404, detail="No prediction for this assessment yet")
-    probabilities = {
-        "unauthorized_access": pred.unauthorized_access_prob or 0.0,
-        "insider_threat": pred.insider_threat_prob or 0.0,
-        "emergency_failure": pred.emergency_failure_prob or 0.0,
-        "perimeter_breach": pred.perimeter_breach_prob or 0.0,
-    }
-    return schemas.AIPredictionResponse(**probabilities, confidence=confidence_of(probabilities))
+    return schemas.AIPredictionResponse(
+        unauthorized_access=pred.unauthorized_access_prob or 0.0,
+        insider_threat=pred.insider_threat_prob or 0.0,
+        emergency_failure=pred.emergency_failure_prob or 0.0,
+        perimeter_breach=pred.perimeter_breach_prob or 0.0,
+    )
 
 
 @router.post("/predict/{assessment_id}", response_model=schemas.AIPredictionResponse)
@@ -209,7 +208,7 @@ def predict_risk(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """Run ML model predictions for a completed assessment."""
+    """Estimate threat likelihoods for a completed assessment (stores the result)."""
     db_assessment = crud.get_assessment(db, assessment_id, user_id=current_user.id)
     if not db_assessment:
         raise HTTPException(status_code=404, detail="Assessment not found")
@@ -236,7 +235,6 @@ def predict_risk(
             insider_threat=predictions["insider_threat"],
             emergency_failure=predictions["emergency_failure"],
             perimeter_breach=predictions["perimeter_breach"],
-            confidence=predictions.get("confidence", 0.0),
         )
     except Exception:
         logger.exception("ML prediction failed for assessment %s", assessment_id)

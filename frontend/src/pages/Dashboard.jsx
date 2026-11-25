@@ -60,9 +60,6 @@ export default function Dashboard() {
               onClick={() => dispatch({ type: 'SET_TAB', payload: 'predictions' })}
             >
               AI Predictions
-              {predictions?.confidence != null && (
-                <span className="tab-badge">{Math.round(predictions.confidence * 100)}%</span>
-              )}
             </button>
             <button
               className={`tab ${activeTab === 'anomalies' ? 'active' : ''}`}

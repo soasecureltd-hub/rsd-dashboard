@@ -62,16 +62,14 @@ export default function AIPredictions({ assessmentId }) {
   return (
     <div className="ai-predictions">
       <div className="predictions-title-row">
-        <h2>AI Risk Predictions</h2>
-        {predictions?.confidence != null && (
-          <span className="confidence-badge">
-            Model confidence: {Math.round(predictions.confidence * 100)}%
-          </span>
-        )}
+        <h2>Estimated Threat Likelihood</h2>
+        <span className="confidence-badge">Estimate</span>
       </div>
       <p className="subtitle">
-        RandomForest classifier — trained on domain-informed facility risk archetypes
-        {simulationMode && ' — showing What-If simulation'}
+        From a model trained on synthetic facilities labelled with expert rules, not on real
+        incident records. Use these to compare threats and track change, not as measured
+        probabilities.
+        {simulationMode && ' Showing What-If simulation.'}
       </p>
 
       {error && <div className="error-message">{error}</div>}
