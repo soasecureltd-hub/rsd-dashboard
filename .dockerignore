@@ -1,0 +1,16 @@
+# Keep the build context small and free of local state / secrets.
+.git
+.github
+**/node_modules
+**/dist
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/venv
+**/.venv
+**/.env
+**/.env.local
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+**/*.pkl

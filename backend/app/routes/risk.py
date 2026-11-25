@@ -1,13 +1,13 @@
 """Risk assessment routes"""
 import logging
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from app import schemas, crud
 from app.db import get_db
 from app.dependencies import get_current_user
 from app.services.risk_service import compute_scores, risk_level, run_anomaly_engine, compute_risk_velocity
-from app.services.ml_service import predict as ml_predict
+from app.services.ml_service import predict as ml_predict, confidence_of
 from app.services.report_service import generate_pdf
 
 logger = logging.getLogger(__name__)
@@ -71,8 +71,8 @@ def get_assessment(
 
 @router.get("/assessments")
 def list_assessments(
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
@@ -101,16 +101,16 @@ def detect_anomalies(
     if not db_assessment:
         raise HTTPException(status_code=404, detail="Assessment not found")
     try:
-        # Fetch user's historical assessments to use as the anomaly baseline.
-        # Exclude the current assessment so it doesn't contaminate its own baseline.
-        all_assessments = crud.get_all_assessments(
-            db, user_id=current_user.id, skip=0, limit=50
-        )
-        historical_scores = [
-            a.category_scores
-            for a in all_assessments
-            if a.id != assessment_id and a.category_scores
+        # Baseline = the user's assessments made BEFORE this one (newest first).
+        # Excludes the current one and anything later, so reopening an old
+        # assessment from history gives the same answer it had at the time.
+        earlier = [
+            a for a in crud.get_assessments_before(
+                db, user_id=current_user.id, before_id=assessment_id, limit=50
+            )
+            if a.category_scores
         ]
+        historical_scores = [a.category_scores for a in earlier]
 
         result = run_anomaly_engine(
             db_assessment.input_data,
@@ -118,12 +118,9 @@ def detect_anomalies(
             historical_category_scores=historical_scores,
         )
 
-        # Risk velocity: compare against the most recent prior assessment
+        # Risk velocity: compare against the most recent earlier assessment
         velocity = None
-        prior = next(
-            (a for a in all_assessments if a.id != assessment_id and a.category_scores),
-            None,
-        )
+        prior = earlier[0] if earlier else None
         if prior and db_assessment.category_scores:
             velocity = compute_risk_velocity(
                 current_scores=db_assessment.category_scores,
@@ -179,6 +176,31 @@ def download_report(
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.get("/predict/{assessment_id}", response_model=schemas.AIPredictionResponse)
+def get_latest_prediction(
+    assessment_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Return the most recent stored prediction without running the model.
+
+    Lets the history view reopen an assessment without creating a new
+    prediction row on every visit. 404 when none has been run yet.
+    """
+    if not crud.get_assessment(db, assessment_id, user_id=current_user.id):
+        raise HTTPException(status_code=404, detail="Assessment not found")
+    pred = crud.get_ai_prediction(db, assessment_id)
+    if not pred:
+        raise HTTPException(status_code=404, detail="No prediction for this assessment yet")
+    probabilities = {
+        "unauthorized_access": pred.unauthorized_access_prob or 0.0,
+        "insider_threat": pred.insider_threat_prob or 0.0,
+        "emergency_failure": pred.emergency_failure_prob or 0.0,
+        "perimeter_breach": pred.perimeter_breach_prob or 0.0,
+    }
+    return schemas.AIPredictionResponse(**probabilities, confidence=confidence_of(probabilities))
 
 
 @router.post("/predict/{assessment_id}", response_model=schemas.AIPredictionResponse)

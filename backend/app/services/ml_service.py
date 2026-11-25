@@ -211,9 +211,12 @@ def predict(assessment_data: Dict) -> Dict:
         for i in range(len(TARGET_NAMES))
     }
 
-    # Confidence: mean distance from the 0.5 decision boundary, scaled to [0, 1]
-    predictions["confidence"] = round(
-        float(np.mean([abs(v - 0.5) * 2 for v in predictions.values()])), 3
-    )
-
+    predictions["confidence"] = confidence_of(predictions)
     return predictions
+
+
+def confidence_of(probabilities: Dict) -> float:
+    """Mean distance of the four threat probabilities from the 0.5 decision
+    boundary, scaled to [0, 1]. (Not stored; recomputed from stored probs.)"""
+    values = [float(probabilities.get(name) or 0.0) for name in TARGET_NAMES]
+    return round(float(np.mean([abs(v - 0.5) * 2 for v in values])), 3)

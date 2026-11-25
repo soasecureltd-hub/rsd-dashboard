@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import '../styles/Auth.css';
+import { errorMessage } from '../api/apiClient';
 
 export default function Register({ onSwitchToLogin }) {
   const { register } = useAuth();
@@ -21,7 +22,7 @@ export default function Register({ onSwitchToLogin }) {
     try {
       await register(email, password, fullName);
     } catch (err) {
-      setError(err.message || err.response?.data?.detail || 'Registration failed');
+      setError(err.response ? errorMessage(err, 'Registration failed') : (err.message || 'Registration failed'));
     } finally {
       setLoading(false);
     }

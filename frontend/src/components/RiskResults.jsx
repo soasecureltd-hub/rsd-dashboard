@@ -1,23 +1,13 @@
 import React, { useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { riskAPI } from '../api/apiClient';
+import { riskColor, riskLabel } from '../utils/risk';
 import '../styles/RiskResults.css';
 
 const TOKEN_KEY = 'rsd_token';
 
-const RISK_COLOR = (score) => {
-  if (score <= 40) return '#28a745';
-  if (score <= 60) return '#ffc107';
-  if (score <= 80) return '#fd7e14';
-  return '#dc3545';
-};
-
-const RISK_LABEL = (score) => {
-  if (score <= 40) return 'LOW RISK';
-  if (score <= 60) return 'MODERATE RISK';
-  if (score <= 80) return 'HIGH RISK';
-  return 'CRITICAL RISK';
-};
+const RISK_COLOR = riskColor;
+const RISK_LABEL = riskLabel;
 
 const RECOMMENDATIONS = {
   'Physical Security':      'Improve perimeter integrity, upgrade lighting, and increase CCTV coverage.',

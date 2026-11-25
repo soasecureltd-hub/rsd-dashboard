@@ -47,3 +47,11 @@ def test_get_ai_prediction_returns_latest(db):
 
 def test_get_ai_prediction_none_when_missing(db):
     assert crud.get_ai_prediction(db, 999) is None
+
+
+def test_get_assessments_before(db):
+    user, other = _user(db), _user(db, "b@example.com")
+    ids = [_assessment(db, user.id).id for _ in range(4)]
+    _assessment(db, other.id)
+    got = [a.id for a in crud.get_assessments_before(db, user.id, before_id=ids[2])]
+    assert got == [ids[1], ids[0]]

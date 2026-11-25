@@ -85,10 +85,11 @@ export default function RiskForm({ onSubmit, loading = false }) {
           <label>CCTV Coverage (%)</label>
           <input
             type="number"
+            required
             min="0"
             max="100"
             value={formData.physical_security.cctv_coverage}
-            onChange={(e) => handleInputChange('physical_security', 'cctv_coverage', parseFloat(e.target.value))}
+            onChange={(e) => handleInputChange('physical_security', 'cctv_coverage', e.target.value === '' ? '' : Number(e.target.value))}
           />
         </div>
 
@@ -96,10 +97,11 @@ export default function RiskForm({ onSubmit, loading = false }) {
           <label>CCTV Functionality (%)</label>
           <input
             type="number"
+            required
             min="0"
             max="100"
             value={formData.physical_security.cctv_functionality}
-            onChange={(e) => handleInputChange('physical_security', 'cctv_functionality', parseFloat(e.target.value))}
+            onChange={(e) => handleInputChange('physical_security', 'cctv_functionality', e.target.value === '' ? '' : Number(e.target.value))}
           />
         </div>
 
@@ -145,10 +147,11 @@ export default function RiskForm({ onSubmit, loading = false }) {
           <label>Guard Adequacy Score (0-100)</label>
           <input
             type="number"
+            required
             min="0"
             max="100"
             value={formData.personnel.guard_count_ratio}
-            onChange={(e) => handleInputChange('personnel', 'guard_count_ratio', parseFloat(e.target.value))}
+            onChange={(e) => handleInputChange('personnel', 'guard_count_ratio', e.target.value === '' ? '' : Number(e.target.value))}
           />
         </div>
 
@@ -171,10 +174,11 @@ export default function RiskForm({ onSubmit, loading = false }) {
           <label>Incident Severity Score (0-100)</label>
           <input
             type="number"
+            required
             min="0"
             max="100"
             value={formData.incident_history.incident_severity_score}
-            onChange={(e) => handleInputChange('incident_history', 'incident_severity_score', parseFloat(e.target.value))}
+            onChange={(e) => handleInputChange('incident_history', 'incident_severity_score', e.target.value === '' ? '' : Number(e.target.value))}
           />
         </div>
 
@@ -182,10 +186,11 @@ export default function RiskForm({ onSubmit, loading = false }) {
           <label>Incident Type Severity (0-100)</label>
           <input
             type="number"
+            required
             min="0"
             max="100"
             value={formData.incident_history.incident_type_score}
-            onChange={(e) => handleInputChange('incident_history', 'incident_type_score', parseFloat(e.target.value))}
+            onChange={(e) => handleInputChange('incident_history', 'incident_type_score', e.target.value === '' ? '' : Number(e.target.value))}
           />
         </div>
 
@@ -193,10 +198,11 @@ export default function RiskForm({ onSubmit, loading = false }) {
           <label>Response Time Quality (0-100)</label>
           <input
             type="number"
+            required
             min="0"
             max="100"
             value={formData.incident_history.response_time_score}
-            onChange={(e) => handleInputChange('incident_history', 'response_time_score', parseFloat(e.target.value))}
+            onChange={(e) => handleInputChange('incident_history', 'response_time_score', e.target.value === '' ? '' : Number(e.target.value))}
           />
         </div>
 

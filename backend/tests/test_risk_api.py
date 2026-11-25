@@ -142,3 +142,47 @@ def test_report_filename_header_exposed_to_cors(client, make_user, create_assess
     a_id = create_assessment(headers)["id"]
     r = client.get(_report_url(a_id), headers={**headers, "Origin": "http://localhost:5173"})
     assert "Content-Disposition" in r.headers.get("access-control-expose-headers", "")
+
+
+# ── Stored prediction lookup (history view) ───────────────────────────────────
+
+def test_get_prediction_404_before_any_run(client, make_user, create_assessment):
+    headers = make_user()
+    a_id = create_assessment(headers)["id"]
+    assert client.get(f"/api/risk/predict/{a_id}", headers=headers).status_code == 404
+
+
+def test_get_prediction_returns_latest_without_creating_rows(client, db, make_user, create_assessment):
+    from app import models
+
+    headers = make_user()
+    a_id = create_assessment(headers)["id"]
+    ran = client.post(f"/api/risk/predict/{a_id}", headers=headers).json()
+
+    for _ in range(3):
+        got = client.get(f"/api/risk/predict/{a_id}", headers=headers)
+        assert got.status_code == 200
+        assert got.json() == ran  # same probabilities and recomputed confidence
+    assert db.query(models.AIPrediction).filter_by(assessment_id=a_id).count() == 1
+
+
+def test_get_prediction_scoped_to_owner(client, make_user, create_assessment):
+    alice = make_user("alice@example.com")
+    a_id = create_assessment(alice)["id"]
+    client.post(f"/api/risk/predict/{a_id}", headers=alice)
+    bob = make_user("bob@example.com")
+    assert client.get(f"/api/risk/predict/{a_id}", headers=bob).status_code == 404
+
+
+def test_reopened_old_assessment_only_compares_with_earlier_ones(client, make_user, create_assessment):
+    """History view: an old assessment must not be compared with newer ones."""
+    headers = make_user()
+    first = create_assessment(headers, quality="Poor")["id"]
+    middle = create_assessment(headers, quality="Excellent")["id"]
+    create_assessment(headers, quality="Good")  # newer than both
+
+    first_result = client.post(f"/api/risk/anomaly/{first}", headers=headers).json()
+    assert first_result["risk_velocity"] is None  # nothing earlier
+
+    velocity = client.post(f"/api/risk/anomaly/{middle}", headers=headers).json()["risk_velocity"]
+    assert velocity["direction"] == "improving"  # Excellent vs the earlier Poor

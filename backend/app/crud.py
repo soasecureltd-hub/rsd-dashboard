@@ -127,6 +127,21 @@ def get_all_assessments(db: Session, user_id: int, skip: int = 0, limit: int = 1
     )
 
 
+def get_assessments_before(db: Session, user_id: int, before_id: int, limit: int = 50):
+    """A user's assessments created before `before_id`, newest first.
+
+    Ids are assigned in creation order, so `id < before_id` means "earlier"
+    without depending on timestamp precision or timezone handling.
+    """
+    return (
+        db.query(models.Assessment)
+        .filter(models.Assessment.user_id == user_id, models.Assessment.id < before_id)
+        .order_by(models.Assessment.id.desc())
+        .limit(limit)
+        .all()
+    )
+
+
 def create_ai_prediction(
     db: Session,
     assessment_id: int,

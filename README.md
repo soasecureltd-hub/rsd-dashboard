@@ -112,6 +112,12 @@ The backend container runs migrations automatically before starting.
   history once they have 5+ assessments (synthetic baseline before that).
 - Risk velocity: change versus the user's most recent previous assessment.
 
+### History & Trends
+- History page listing all your assessments (newest first) with a risk-score
+  trend chart: one line per facility, with a facility filter.
+- "Change since previous" compares against the previous assessment of the
+  same facility. Any past assessment can be reopened in the dashboard.
+
 ### PDF Report
 - Downloadable report with scores, weaknesses, recommendations and the latest
   AI prediction.
@@ -133,9 +139,10 @@ All `/api/risk/*` endpoints require `Authorization: Bearer <token>`.
 ### Risk
 - `POST /api/risk/assess` - Create and score an assessment
 - `GET /api/risk/assess/{id}` - Get an assessment
-- `GET /api/risk/assessments` - List your assessments (newest first)
+- `GET /api/risk/assessments?skip=&limit=` - List your assessments, newest first (`limit` 1–100)
 - `POST /api/risk/anomaly/{id}` - Run anomaly detection + risk velocity
-- `POST /api/risk/predict/{id}` - Run ML threat predictions
+- `POST /api/risk/predict/{id}` - Run ML threat predictions (stores a new prediction)
+- `GET /api/risk/predict/{id}` - Latest stored prediction, without re-running the model (404 if none)
 - `GET /api/risk/assess/{id}/report` - Download the PDF report
 
 ## Configuration

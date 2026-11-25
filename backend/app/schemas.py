@@ -1,51 +1,61 @@
 """
 Pydantic schemas for request/response validation
 """
-from pydantic import BaseModel, EmailStr, Field
-from typing import Dict, List, Optional
+from pydantic import BaseModel, EmailStr, Field, StringConstraints
+from typing import Annotated, Dict, List, Literal, Optional
 from datetime import datetime
 
 
 # ============ Risk Assessment Schemas ============
 
+# Qualitative rating; must match QUAL_MAPPING in services/risk_service.py.
+# Anything else is rejected (previously a typo silently scored as 50).
+Quality = Literal["Poor", "Fair", "Good", "Excellent"]
+
+# Numeric inputs are 0-100 scores/percentages.
+Percent = Annotated[float, Field(ge=0, le=100, allow_inf_nan=False)]
+
+
 class PhysicalSecurityInput(BaseModel):
-    perimeter_condition: str
-    cctv_coverage: float
-    cctv_functionality: float
-    lighting_quality: str
-    entry_exit_control: str
+    perimeter_condition: Quality
+    cctv_coverage: Percent
+    cctv_functionality: Percent
+    lighting_quality: Quality
+    entry_exit_control: Quality
 
 
 class AccessControlInput(BaseModel):
-    visitor_management: str
-    id_verification: str
-    restricted_area_protection: str
-    after_hours_security: str
+    visitor_management: Quality
+    id_verification: Quality
+    restricted_area_protection: Quality
+    after_hours_security: Quality
 
 
 class PersonnelInput(BaseModel):
-    guard_count_ratio: float
-    training_frequency: str
-    background_checks: str
-    shift_coverage: str
+    guard_count_ratio: Percent
+    training_frequency: Quality
+    background_checks: Quality
+    shift_coverage: Quality
 
 
 class IncidentHistoryInput(BaseModel):
-    incident_severity_score: float
-    incident_type_score: float
-    response_time_score: float
-    documentation_quality: str
+    incident_severity_score: Percent
+    incident_type_score: Percent
+    response_time_score: Percent
+    documentation_quality: Quality
 
 
 class EmergencyPreparednessInput(BaseModel):
-    emergency_plan: str
-    drill_frequency: str
-    communication_system: str
-    staff_readiness: str
+    emergency_plan: Quality
+    drill_frequency: Quality
+    communication_system: Quality
+    staff_readiness: Quality
 
 
 class RiskAssessmentInput(BaseModel):
-    facility_name: Optional[str] = None
+    facility_name: Optional[
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)]
+    ] = None
     physical_security: PhysicalSecurityInput
     access_control: AccessControlInput
     personnel: PersonnelInput

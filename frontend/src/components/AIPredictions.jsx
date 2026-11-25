@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAssessment } from '../context/AssessmentContext';
-import { riskAPI } from '../api/apiClient';
+import { riskAPI, errorMessage } from '../api/apiClient';
 import '../styles/AIPredictions.css';
 
 export default function AIPredictions({ assessmentId }) {
@@ -24,7 +24,7 @@ export default function AIPredictions({ assessmentId }) {
       const response = await riskAPI.predict(assessmentId);
       dispatch({ type: 'SET_PREDICTIONS', payload: response.data });
     } catch (err) {
-      setError(err.response?.data?.detail || 'Error running predictions');
+      setError(errorMessage(err, 'Error running predictions'));
     } finally {
       setLoading(false);
     }

@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { AssessmentProvider } from './context/AssessmentContext';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
+import History from './pages/History';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import './styles/App.css';
@@ -33,6 +34,7 @@ function AppShell() {
         <nav className="nav-menu">
           <button onClick={() => setCurrentPage('home')}>Home</button>
           <button onClick={() => setCurrentPage('dashboard')}>Assessment</button>
+          <button onClick={() => setCurrentPage('history')}>History</button>
         </nav>
         <div className="nav-user">
           <span className="nav-email">{user?.email}</span>
@@ -43,10 +45,16 @@ function AppShell() {
       <main className="app-main">
         {currentPage === 'home' && <Home onNavigate={setCurrentPage} />}
         {currentPage === 'dashboard' && <Dashboard />}
+        {currentPage === 'history' && (
+          <History
+            onOpen={() => setCurrentPage('dashboard')}
+            onStart={() => setCurrentPage('dashboard')}
+          />
+        )}
       </main>
 
       <footer className="app-footer">
-        <p>Risk-Security Diagnostic &copy; 2024 | All Rights Reserved</p>
+        <p>Risk-Security Diagnostic &copy; {new Date().getFullYear()} | All Rights Reserved</p>
       </footer>
     </div>
   );

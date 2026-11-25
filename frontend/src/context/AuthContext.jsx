@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import apiClient from '../api/apiClient';
+import apiClient, { errorMessage } from '../api/apiClient';
 
 const AuthContext = createContext(null);
 const TOKEN_KEY = 'rsd_token';
@@ -55,7 +55,7 @@ export function AuthProvider({ children }) {
     try {
       await apiClient.post('/auth/register', { email, password, full_name });
     } catch (err) {
-      const detail = err.response?.data?.detail || 'Registration failed';
+      const detail = errorMessage(err, 'Registration failed');
       throw new Error(detail);
     }
     // Registration succeeded — now sign in. A failure here is a login error, not a registration error.

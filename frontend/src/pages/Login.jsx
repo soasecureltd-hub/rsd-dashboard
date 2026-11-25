@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import '../styles/Auth.css';
+import { errorMessage } from '../api/apiClient';
 
 export default function Login({ onSwitchToRegister }) {
   const { login } = useAuth();
@@ -16,7 +17,7 @@ export default function Login({ onSwitchToRegister }) {
     try {
       await login(email, password);
     } catch (err) {
-      setError(err.response?.data?.detail || 'Invalid email or password');
+      setError(errorMessage(err, 'Invalid email or password'));
     } finally {
       setLoading(false);
     }

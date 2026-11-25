@@ -1,0 +1,241 @@
+.history {
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.history h2 {
+  margin: 0 0 4px;
+  color: var(--dark);
+}
+
+.history h3 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  color: var(--dark);
+}
+
+.history-muted {
+  color: #6b7280;
+  margin: 0;
+}
+
+.history-empty {
+  align-items: center;
+  text-align: center;
+  padding: 60px 30px;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.history-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.history-filter select {
+  min-width: 200px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.95rem;
+  color: var(--text);
+  background: white;
+}
+
+/* Stat tiles */
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.stat-tile {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+}
+
+.stat-label {
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 600;
+  color: var(--dark);
+  line-height: 1.2;
+  margin: 4px 0;
+}
+
+.stat-sub {
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+/* Trend chart */
+.trend-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 18px 8px;
+}
+
+.trend-chart {
+  width: 100%;
+}
+
+.trend-tooltip {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.trend-tooltip-when {
+  color: #6b7280;
+}
+
+.trend-tooltip-facility {
+  font-weight: 500;
+  color: var(--dark);
+  margin-bottom: 2px;
+}
+
+/* Risk badge: coloured dot + text label */
+.risk-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+}
+
+.risk-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Table */
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.history-table th,
+.history-table td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.history-table th {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #6b7280;
+}
+
+.history-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.history-table .actions {
+  text-align: right;
+}
+
+.history-table tbody tr:hover {
+  background: var(--light);
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--primary-dark);
+  font-weight: 500;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.btn-link:hover,
+.btn-link:focus-visible {
+  text-decoration: underline;
+  background: none;
+  transform: none;
+  box-shadow: none;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .history {
+    padding: 18px;
+  }
+
+  .history-table th:nth-child(2),
+  .history-table td:nth-child(2) {
+    display: none;
+  }
+}
+
+.history-note {
+  font-size: 0.85rem;
+  margin-top: 8px;
+}
+
+/* HTML legend: wraps naturally on narrow screens instead of overlapping the plot */
+.trend-legend {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 0 0 8px;
+  padding: 0;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.trend-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.trend-legend-key {
+  width: 16px;
+  height: 2px;
+  border-radius: 1px;
+}
+
+@media (max-width: 640px) {
+  .trend-card {
+    padding: 14px 8px 4px;
+  }
+}

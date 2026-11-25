@@ -4,7 +4,7 @@ import RiskResults from '../components/RiskResults';
 import AnomalyReport from '../components/AnomalyReport';
 import AIPredictions from '../components/AIPredictions';
 import { useAssessment } from '../context/AssessmentContext';
-import { riskAPI } from '../api/apiClient';
+import { riskAPI, errorMessage } from '../api/apiClient';
 import '../styles/Dashboard.css';
 
 export default function Dashboard() {
@@ -32,7 +32,7 @@ export default function Dashboard() {
         dispatch({ type: 'SET_PREDICTIONS', payload: predRes.value.data });
       }
     } catch (err) {
-      dispatch({ type: 'SET_ERROR', payload: err.response?.data?.detail || 'Error creating assessment' });
+      dispatch({ type: 'SET_ERROR', payload: errorMessage(err, 'Error creating assessment') });
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
     }
