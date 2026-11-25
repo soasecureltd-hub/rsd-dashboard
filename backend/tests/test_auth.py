@@ -43,3 +43,31 @@ def test_me_requires_token(client):
 def test_me_rejects_garbage_token(client):
     r = client.get("/api/auth/me", headers={"Authorization": "Bearer not-a-jwt"})
     assert r.status_code == 401
+
+
+def test_cors_allows_listed_origin(client):
+    r = client.get("/health", headers={"Origin": "http://localhost:5173"})
+    assert r.headers.get("access-control-allow-origin") == "http://localhost:5173"
+
+
+def test_cors_rejects_unlisted_origin(client):
+    r = client.get("/health", headers={"Origin": "https://evil.example.com"})
+    assert "access-control-allow-origin" not in r.headers
+
+
+def test_cors_origin_regex_for_preview_deployments():
+    """ALLOWED_ORIGIN_REGEX admits Vercel previews but nothing look-alike."""
+    from fastapi import FastAPI
+    from fastapi.middleware.cors import CORSMiddleware
+    from fastapi.testclient import TestClient
+
+    app = FastAPI()
+    app.add_middleware(CORSMiddleware, allow_origins=[], allow_credentials=True,
+                       allow_origin_regex=r"^https://rsd-frontend(-[a-z0-9-]+)?\.vercel\.app$")
+    app.get("/")(lambda: {})
+    c = TestClient(app)
+    allowed = lambda o: c.get("/", headers={"Origin": o}).headers.get("access-control-allow-origin") == o
+    assert allowed("https://rsd-frontend.vercel.app")
+    assert allowed("https://rsd-frontend-git-main-team.vercel.app")
+    assert not allowed("https://rsd-frontend.vercel.app.evil.com")
+    assert not allowed("https://evil-rsd-frontend.vercel.app")

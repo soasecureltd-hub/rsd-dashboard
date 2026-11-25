@@ -213,11 +213,12 @@ See [DEVELOPMENT.md](DEVELOPMENT.md#testing) for what is covered.
 
 ## Deployment
 
-`render.yaml` defines two Render services built from `Dockerfile.backend` and
-`Dockerfile.frontend` (nginx). Set `DATABASE_URL` (Supabase Postgres) in the
-Render dashboard; Render generates `JWT_SECRET_KEY`. Update `ALLOWED_ORIGINS`
-and `VITE_API_URL` to your real service URLs. Migrations run on every backend
-container start.
+Frontend on **Vercel** (`frontend/vercel.json`), backend on **Render**
+(`render.yaml`, Docker), database on **Supabase**. Step-by-step guide:
+[DEPLOY.md](DEPLOY.md). Migrations run on every backend container start.
+
+`Dockerfile.frontend` (nginx) remains for running the frontend as a container
+(e.g. `docker-compose up`).
 
 ## Dependencies
 

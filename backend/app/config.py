@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     def allowed_origins_list(self) -> list:
         return [o.strip() for o in self.ALLOWED_ORIGINS.split(",") if o.strip()]
 
+    # Optional regex for origins that can't be listed up front, e.g. Vercel
+    # preview deployments: ^https://rsd-frontend(-[a-z0-9-]+)?\.vercel\.app$
+    # Anchor it (^...$) and keep it specific to your project; empty = disabled.
+    ALLOWED_ORIGIN_REGEX: str = ""
+
     # JWT Authentication
     # No usable default: must be supplied via environment / .env in production.
     JWT_SECRET_KEY: str = ""

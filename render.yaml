@@ -1,30 +1,26 @@
+# Render blueprint: backend API only. The frontend is deployed on Vercel
+# (see DEPLOY.md and frontend/vercel.json).
 services:
   - type: web
     name: rsd-backend
     runtime: docker
     dockerfilePath: ./Dockerfile.backend
     dockerContext: .
+    healthCheckPath: /health
     envVars:
       - key: JWT_SECRET_KEY
         generateValue: true        # Render generates a secure random value on first deploy
       - key: DEBUG
         value: false
       - key: DATABASE_URL
-        sync: false   # Set in the Render dashboard (Supabase Postgres URL). Never commit the password.
+        sync: false                # Set in the Render dashboard (Supabase *session pooler* URL). Never commit it.
       - key: ALLOWED_ORIGINS
-        value: https://rsd-frontend.onrender.com  # Replace with your actual frontend URL
+        sync: false                # Your Vercel production URL, e.g. https://rsd-frontend.vercel.app
+      - key: ALLOWED_ORIGIN_REGEX
+        sync: false                # Optional: Vercel preview URLs, e.g. ^https://rsd-frontend(-[a-z0-9-]+)?\.vercel\.app$
       - key: SENTRY_DSN
-        value: ""                  # Optional: set your Sentry DSN here
+        sync: false                # Optional
       - key: FORWARDED_ALLOW_IPS
         value: "*"                 # Render's load balancer sets X-Forwarded-For; trust it so
                                    # login rate limiting sees real client IPs. Only safe because
                                    # the container is reachable solely through Render's proxy.
-
-  - type: web
-    name: rsd-frontend
-    runtime: docker
-    dockerfilePath: ./Dockerfile.frontend
-    dockerContext: .
-    dockerBuildArgs:
-      - key: VITE_API_URL
-        value: https://risk-assement.onrender.com/api  # Replace with your actual backend URL
