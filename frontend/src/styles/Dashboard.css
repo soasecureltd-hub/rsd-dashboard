@@ -80,6 +80,10 @@
 }
 
 @media (max-width: 768px) {
+  .dashboard {
+    padding: 14px;
+  }
+
   .tabs {
     flex-wrap: wrap;
   }

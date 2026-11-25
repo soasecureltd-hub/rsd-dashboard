@@ -71,7 +71,10 @@ class RiskAssessmentResponse(BaseModel):
     contributions: Dict[str, float]
     overall_score: float
     risk_level: str
-    
+    # The answers the assessment was scored from (lets the UI pre-fill the
+    # What-If simulator). Same shape as RiskAssessmentInput.
+    input_data: Optional[Dict] = None
+
     class Config:
         from_attributes = True
 
@@ -151,3 +154,19 @@ class AnomalyDetectionResponse(BaseModel):
     anomaly_score: float = 0.0               # 0–1, higher = more anomalous
     risk_velocity: Optional[Dict] = None     # rate of change vs previous assessment
 
+
+
+# ============ What-If Simulation Schemas ============
+
+class ScenarioOutcome(BaseModel):
+    """Scores and estimated threats for one set of inputs (nothing is saved)."""
+    overall_score: float
+    risk_level: str
+    category_scores: Dict[str, float]
+    threats: AIPredictionResponse
+
+
+class SimulationResponse(BaseModel):
+    """The assessment as saved vs. an edited scenario, scored the same way."""
+    baseline: ScenarioOutcome
+    scenario: ScenarioOutcome

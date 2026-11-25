@@ -1,41 +1,60 @@
 import React, { useState } from 'react';
 import '../styles/RiskForm.css';
 
-export default function RiskForm({ onSubmit, loading = false }) {
-  const [formData, setFormData] = useState({
-    facility_name: '',
-    physical_security: {
-      perimeter_condition: 'Good',
-      cctv_coverage: 75,
-      cctv_functionality: 85,
-      lighting_quality: 'Good',
-      entry_exit_control: 'Good',
-    },
-    access_control: {
-      visitor_management: 'Good',
-      id_verification: 'Good',
-      restricted_area_protection: 'Good',
-      after_hours_security: 'Good',
-    },
-    personnel: {
-      guard_count_ratio: 70,
-      training_frequency: 'Good',
-      background_checks: 'Good',
-      shift_coverage: 'Good',
-    },
-    incident_history: {
-      incident_severity_score: 40,
-      incident_type_score: 35,
-      response_time_score: 60,
-      documentation_quality: 'Good',
-    },
-    emergency_preparedness: {
-      emergency_plan: 'Good',
-      drill_frequency: 'Good',
-      communication_system: 'Good',
-      staff_readiness: 'Good',
-    },
+const DEFAULT_FORM = {
+  facility_name: '',
+  physical_security: {
+    perimeter_condition: 'Good',
+    cctv_coverage: 75,
+    cctv_functionality: 85,
+    lighting_quality: 'Good',
+    entry_exit_control: 'Good',
+  },
+  access_control: {
+    visitor_management: 'Good',
+    id_verification: 'Good',
+    restricted_area_protection: 'Good',
+    after_hours_security: 'Good',
+  },
+  personnel: {
+    guard_count_ratio: 70,
+    training_frequency: 'Good',
+    background_checks: 'Good',
+    shift_coverage: 'Good',
+  },
+  incident_history: {
+    incident_severity_score: 40,
+    incident_type_score: 35,
+    response_time_score: 60,
+    documentation_quality: 'Good',
+  },
+  emergency_preparedness: {
+    emergency_plan: 'Good',
+    drill_frequency: 'Good',
+    communication_system: 'Good',
+    staff_readiness: 'Good',
+  },
+};
+
+/** Defaults overlaid with any provided answers (section by section). */
+function buildInitial(initialData) {
+  if (!initialData) return DEFAULT_FORM;
+  const merged = { ...DEFAULT_FORM, facility_name: initialData.facility_name || '' };
+  Object.keys(DEFAULT_FORM).forEach((key) => {
+    if (key !== 'facility_name') merged[key] = { ...DEFAULT_FORM[key], ...(initialData[key] || {}) };
   });
+  return merged;
+}
+
+export default function RiskForm({
+  onSubmit,
+  loading = false,
+  initialData = null,       // pre-fill (e.g. What-If simulator)
+  submitLabel = 'Analyze Risk',
+  loadingLabel = 'Analyzing...',
+  hideFacility = false,
+}) {
+  const [formData, setFormData] = useState(() => buildInitial(initialData));
 
   const handleInputChange = (section, field, value) => {
     setFormData({
@@ -56,18 +75,20 @@ export default function RiskForm({ onSubmit, loading = false }) {
 
   return (
     <form className="risk-form" onSubmit={handleSubmit}>
-      <section className="form-section">
-        <h3>Facility Information</h3>
-        <div className="form-group">
-          <label>Facility Name (Optional)</label>
-          <input
-            type="text"
-            value={formData.facility_name}
-            onChange={(e) => setFormData({ ...formData, facility_name: e.target.value })}
-            placeholder="e.g., Corporate Headquarters"
-          />
-        </div>
-      </section>
+      {!hideFacility && (
+        <section className="form-section">
+          <h3>Facility Information</h3>
+          <div className="form-group">
+            <label>Facility Name (Optional)</label>
+            <input
+              type="text"
+              value={formData.facility_name}
+              onChange={(e) => setFormData({ ...formData, facility_name: e.target.value })}
+              placeholder="e.g., Corporate Headquarters"
+            />
+          </div>
+        </section>
+      )}
 
       <section className="form-section">
         <h3>Physical Security</h3>
@@ -233,7 +254,7 @@ export default function RiskForm({ onSubmit, loading = false }) {
       </section>
 
       <button type="submit" disabled={loading} className="submit-btn">
-        {loading ? 'Analyzing...' : 'Analyze Risk'}
+        {loading ? loadingLabel : submitLabel}
       </button>
     </form>
   );

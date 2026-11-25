@@ -14,6 +14,46 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/risk", tags=["risk"])
 
+# Scoring category -> key of that section in RiskAssessmentInput / input_data.
+CATEGORY_SECTIONS = {
+    "Physical Security": "physical_security",
+    "Access Control": "access_control",
+    "Personnel": "personnel",
+    "Incident History": "incident_history",
+    "Emergency Preparedness": "emergency_preparedness",
+}
+
+
+def _category_data(sections: dict) -> dict:
+    """RiskAssessmentInput-shaped dict -> {category: answers} for compute_scores."""
+    return {cat: sections.get(key) or {} for cat, key in CATEGORY_SECTIONS.items()}
+
+
+def _to_response(a) -> schemas.RiskAssessmentResponse:
+    return schemas.RiskAssessmentResponse(
+        id=a.id,
+        facility_name=a.facility_name,
+        created_at=a.created_at,
+        category_scores=a.category_scores or {},
+        contributions=a.contributions or {},
+        overall_score=a.overall_score or 0,
+        risk_level=a.risk_level or "Unknown",
+        input_data=a.input_data,
+    )
+
+
+def _score_scenario(sections: dict) -> schemas.ScenarioOutcome:
+    """Score a set of answers and estimate threats, without saving anything."""
+    category_scores, _, overall = compute_scores(_category_data(sections))
+    _, level, _ = risk_level(overall)
+    threats = ml_predict({"overall_score": overall, "category_scores": category_scores})
+    return schemas.ScenarioOutcome(
+        overall_score=overall,
+        risk_level=level,
+        category_scores=category_scores,
+        threats=schemas.AIPredictionResponse(**threats),
+    )
+
 
 @router.post("/assess", response_model=schemas.RiskAssessmentResponse)
 def create_assessment(
@@ -22,28 +62,15 @@ def create_assessment(
     current_user=Depends(get_current_user),
 ):
     try:
-        data = {
-            "Physical Security": assessment.physical_security.model_dump(),
-            "Access Control": assessment.access_control.model_dump(),
-            "Personnel": assessment.personnel.model_dump(),
-            "Incident History": assessment.incident_history.model_dump(),
-            "Emergency Preparedness": assessment.emergency_preparedness.model_dump(),
-        }
-        category_scores, contributions, overall_score = compute_scores(data)
+        category_scores, contributions, overall_score = compute_scores(
+            _category_data(assessment.model_dump())
+        )
         badge, risk_level_name, color = risk_level(overall_score)
         db_assessment = crud.create_assessment(db, assessment, user_id=current_user.id)
         db_assessment = crud.update_assessment_results(
             db, db_assessment.id, category_scores, contributions, overall_score, risk_level_name
         )
-        return schemas.RiskAssessmentResponse(
-            id=db_assessment.id,
-            facility_name=db_assessment.facility_name,
-            created_at=db_assessment.created_at,
-            category_scores=category_scores,
-            contributions=contributions,
-            overall_score=overall_score,
-            risk_level=risk_level_name,
-        )
+        return _to_response(db_assessment)
     except Exception:
         logger.exception("Failed to create risk assessment")
         raise HTTPException(status_code=400, detail="Could not process assessment")
@@ -58,18 +85,10 @@ def get_assessment(
     db_assessment = crud.get_assessment(db, assessment_id, user_id=current_user.id)
     if not db_assessment:
         raise HTTPException(status_code=404, detail="Assessment not found")
-    return schemas.RiskAssessmentResponse(
-        id=db_assessment.id,
-        facility_name=db_assessment.facility_name,
-        created_at=db_assessment.created_at,
-        category_scores=db_assessment.category_scores or {},
-        contributions=db_assessment.contributions or {},
-        overall_score=db_assessment.overall_score or 0,
-        risk_level=db_assessment.risk_level or "Unknown",
-    )
+    return _to_response(db_assessment)
 
 
-@router.get("/assessments")
+@router.get("/assessments", response_model=list[schemas.RiskAssessmentResponse])
 def list_assessments(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
@@ -77,18 +96,33 @@ def list_assessments(
     current_user=Depends(get_current_user),
 ):
     assessments = crud.get_all_assessments(db, user_id=current_user.id, skip=skip, limit=limit)
-    return [
-        schemas.RiskAssessmentResponse(
-            id=a.id,
-            facility_name=a.facility_name,
-            created_at=a.created_at,
-            category_scores=a.category_scores or {},
-            contributions=a.contributions or {},
-            overall_score=a.overall_score or 0,
-            risk_level=a.risk_level or "Unknown",
+    return [_to_response(a) for a in assessments]
+
+
+@router.post("/assess/{assessment_id}/simulate", response_model=schemas.SimulationResponse)
+def simulate_scenario(
+    assessment_id: int,
+    scenario: schemas.RiskAssessmentInput,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """What-If: score an edited copy of this assessment's answers.
+
+    Both the saved answers (baseline) and the scenario are scored right now with
+    the same scoring rules and model, so the difference reflects only the edits.
+    Nothing is saved.
+    """
+    db_assessment = crud.get_assessment(db, assessment_id, user_id=current_user.id)
+    if not db_assessment:
+        raise HTTPException(status_code=404, detail="Assessment not found")
+    try:
+        return schemas.SimulationResponse(
+            baseline=_score_scenario(db_assessment.input_data or {}),
+            scenario=_score_scenario(scenario.model_dump()),
         )
-        for a in assessments
-    ]
+    except Exception:
+        logger.exception("Simulation failed for assessment %s", assessment_id)
+        raise HTTPException(status_code=500, detail="Could not run the scenario")
 
 
 @router.post("/anomaly/{assessment_id}", response_model=schemas.AnomalyDetectionResponse)

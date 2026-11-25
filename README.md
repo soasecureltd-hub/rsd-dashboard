@@ -107,6 +107,9 @@ The backend container runs migrations automatically before starting.
   `services/ml_service.py`): each threat has a risk index over the category
   scores, mapped to a probability by a logistic curve. Treat the outputs as
   relative indicators, not measured probabilities; the UI and PDF say so.
+- **What-If scenarios:** edit any answer of an assessment and see the
+  recalculated overall score and threat estimates next to the current ones,
+  using the real scoring and model. Nothing is saved.
 - Trained on first use and cached to `MODEL_PATH` with a version number, so
   changing the model (`MODEL_VERSION`) retrains automatically.
 
@@ -145,6 +148,7 @@ All `/api/risk/*` endpoints require `Authorization: Bearer <token>`.
 - `POST /api/risk/assess` - Create and score an assessment
 - `GET /api/risk/assess/{id}` - Get an assessment
 - `GET /api/risk/assessments?skip=&limit=` - List your assessments, newest first (`limit` 1–100)
+- `POST /api/risk/assess/{id}/simulate` - What-If: score an edited copy of the answers against the saved ones (nothing is saved)
 - `POST /api/risk/anomaly/{id}` - Run anomaly detection + risk velocity
 - `POST /api/risk/predict/{id}` - Run ML threat predictions (stores a new prediction)
 - `GET /api/risk/predict/{id}` - Latest stored prediction, without re-running the model (404 if none)

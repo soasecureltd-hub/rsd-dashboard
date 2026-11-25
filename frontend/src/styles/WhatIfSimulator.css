@@ -1,0 +1,176 @@
+/* What-If simulator: results table + embedded RiskForm */
+
+.whatif-result {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin: 10px 0 24px;
+  scroll-margin-top: 20px;
+}
+
+.whatif-result h4 {
+  margin: 0 0 12px;
+  color: var(--dark);
+}
+
+.whatif-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.whatif-table th,
+.whatif-table td {
+  text-align: left;
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.whatif-table thead th {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #6b7280;
+}
+
+.whatif-table tbody th {
+  font-weight: 500;
+  color: var(--dark);
+}
+
+.whatif-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.whatif-row--overall th,
+.whatif-row--overall td {
+  font-weight: 600;
+  background: var(--light);
+}
+
+.whatif-level {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: #6b7280;
+}
+
+/* Direction is carried by arrow + words; colour only reinforces it. */
+.whatif-delta {
+  white-space: nowrap;
+  color: #6b7280;
+}
+
+.whatif-delta--better {
+  color: #047857;
+}
+
+.whatif-delta--worse {
+  color: #b91c1c;
+}
+
+.whatif-changes {
+  margin-top: 16px;
+}
+
+.whatif-changes h5 {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+  color: var(--dark);
+}
+
+.whatif-changes ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.whatif-changes p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.whatif-change-where {
+  color: #6b7280;
+}
+
+.whatif-note {
+  margin: 14px 0 0;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.whatif-form {
+  background: white;
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.whatif-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+@media (max-width: 640px) {
+  .whatif-result,
+  .whatif-form {
+    padding: 12px;
+  }
+
+  .what-if-section {
+    padding: 16px 12px;
+  }
+
+  /* Stack each measure as a small card instead of a squeezed 4-column table */
+  .whatif-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .whatif-table,
+  .whatif-table tbody,
+  .whatif-table tr,
+  .whatif-table th,
+  .whatif-table td {
+    display: block;
+  }
+
+  .whatif-table tr {
+    border-bottom: 1px solid var(--border);
+    padding: 8px 0;
+  }
+
+  .whatif-table th,
+  .whatif-table td {
+    border-bottom: none;
+    padding: 2px 4px;
+  }
+
+  .whatif-table td {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    text-align: right;
+  }
+
+  .whatif-delta {
+    white-space: normal;
+  }
+
+  .whatif-table td::before {
+    content: attr(data-label);
+    color: #6b7280;
+    font-weight: 400;
+    text-align: left;
+  }
+}

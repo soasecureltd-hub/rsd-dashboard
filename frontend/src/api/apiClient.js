@@ -43,6 +43,8 @@ export const riskAPI = {
   predict: (assessmentId) => apiClient.post(`/risk/predict/${assessmentId}`),
   // Latest stored prediction (404 if none yet) — does not run the model.
   getPrediction: (assessmentId) => apiClient.get(`/risk/predict/${assessmentId}`),
+  // What-If: score edited answers against this assessment; nothing is saved.
+  simulate: (assessmentId, scenario) => apiClient.post(`/risk/assess/${assessmentId}/simulate`, scenario),
   // Token goes in the Authorization header (via interceptor), never the URL.
   downloadReport: (assessmentId) =>
     apiClient.get(`/risk/assess/${assessmentId}/report`, { responseType: 'blob' }),
