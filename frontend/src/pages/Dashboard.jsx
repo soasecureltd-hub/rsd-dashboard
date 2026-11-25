@@ -83,7 +83,7 @@ export default function Dashboard() {
 
       <div className="tab-content">
         {activeTab === 'input' && (
-          <RiskForm onSubmit={handleAssessmentSubmit} loading={loading} />
+          <RiskForm onSubmit={handleAssessmentSubmit} loading={loading} requireReview />
         )}
         {activeTab === 'results' && assessment && (
           <RiskResults

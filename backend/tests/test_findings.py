@@ -147,3 +147,21 @@ def test_findings_require_auth_and_ownership(client, make_user, create_assessmen
     assert client.get(f"/api/risk/assess/{a_id}/findings").status_code == 401
     bob = make_user("bob@example.com")
     assert client.get(f"/api/risk/assess/{a_id}/findings", headers=bob).status_code == 404
+
+
+def test_frontend_form_hints_use_the_same_thresholds():
+    """The form's live hints (frontend/src/utils/risk.js) must agree with these rules."""
+    import re
+    from pathlib import Path
+    from app.services import findings_service as fs
+    from app.services.risk_service import QUAL_MAPPING
+
+    js_path = Path(__file__).resolve().parents[2] / "frontend" / "src" / "utils" / "risk.js"
+    if not js_path.exists():
+        pytest.skip("frontend not checked out")
+    js = js_path.read_text(encoding="utf-8")
+    for name in ("URGENT_AT", "ATTENTION_AT", "STRENGTH_AT"):
+        value = float(re.search(rf"export const {name} = (\d+(?:\.\d+)?);", js).group(1))
+        assert value == getattr(fs, name), name
+    for quality, risk in QUAL_MAPPING.items():
+        assert re.search(rf"\b{quality}: {risk}\b", js), quality

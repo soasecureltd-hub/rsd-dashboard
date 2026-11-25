@@ -20,6 +20,8 @@ import numpy as np
 
 from app.services.risk_service import POSITIVE_NUMERIC_FIELDS, map_score
 
+# Mirrored in frontend/src/utils/risk.js (form hints); tests/test_findings.py
+# fails if the two disagree.
 URGENT_AT = 80.0
 ATTENTION_AT = 60.0
 STRENGTH_AT = 15.0
