@@ -131,27 +131,41 @@ class AIPredictionResponse(BaseModel):
     ])
 
 
-# ============ Anomaly Detection Schemas ============
+# ============ Key Findings Schemas ============
 
-class AnomalyAlert(BaseModel):
-    feature: str
-    severity: str  # HIGH, MEDIUM
-    z_score: float
-    value: float
-    message: str
-    direction: Optional[str] = None           # "above" or "below" baseline
-    baseline_mean: Optional[float] = None
-    percent_deviation: Optional[float] = None
+class Finding(BaseModel):
+    """An answer that raises risk, explained in plain language."""
+    category: str
+    field: str
+    label: str
+    answer: str            # as the user gave it, e.g. "Poor" or "40%"
+    risk: float            # 0-100 on the scoring scale, higher = riskier
+    severity: Literal["urgent", "attention"]
+    headline: str
+    why: str
+    action: str
 
 
-class AnomalyDetectionResponse(BaseModel):
-    total_anomalies: int
-    anomalies: List[AnomalyAlert]
-    status: str
-    multivariate_anomaly: bool = False        # IsolationForest global flag
-    anomaly_score: float = 0.0               # 0–1, higher = more anomalous
-    risk_velocity: Optional[Dict] = None     # rate of change vs previous assessment
+class Strength(BaseModel):
+    category: str
+    field: str
+    label: str
+    answer: str
+    risk: float
 
+
+class UnusualCombination(BaseModel):
+    """Statistical check on the mix of category scores (a detail, not an alarm)."""
+    unusual: bool
+    score: float           # 0-1, higher = more unusual
+    compared_with: Literal["own_history", "typical_profiles"]
+
+
+class FindingsResponse(BaseModel):
+    concerns: List[Finding]          # most urgent first
+    strengths: List[Strength]
+    risk_velocity: Optional[Dict] = None   # vs previous assessment of the same facility
+    unusual_combination: UnusualCombination
 
 
 # ============ What-If Simulation Schemas ============

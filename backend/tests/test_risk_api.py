@@ -1,4 +1,4 @@
-"""Risk assessment API: scoring, ownership, anomalies, predictions, PDF report."""
+"""Risk assessment API: scoring, ownership, findings, predictions, PDF report."""
 import pytest
 
 from tests.conftest import assessment_payload
@@ -43,7 +43,7 @@ def test_users_cannot_see_each_others_assessments(client, make_user, create_asse
     a_id = create_assessment(alice)["id"]
 
     assert client.get(f"/api/risk/assess/{a_id}", headers=bob).status_code == 404
-    assert client.post(f"/api/risk/anomaly/{a_id}", headers=bob).status_code == 404
+    assert client.get(f"/api/risk/assess/{a_id}/findings", headers=bob).status_code == 404
     assert client.post(f"/api/risk/predict/{a_id}", headers=bob).status_code == 404
     assert client.get("/api/risk/assessments", headers=bob).json() == []
 
@@ -57,16 +57,15 @@ def test_list_assessments_newest_first(client, make_user, create_assessment):
 
 # ── Anomalies ─────────────────────────────────────────────────────────────────
 
-def test_anomaly_detection(client, make_user, create_assessment):
+def test_findings_endpoint(client, make_user, create_assessment):
     headers = make_user()
-    a_id = create_assessment(headers, incident_severity_score=95)["id"]
-    r = client.post(f"/api/risk/anomaly/{a_id}", headers=headers)
+    a_id = create_assessment(headers, quality="Poor", incident_severity_score=95)["id"]
+    r = client.get(f"/api/risk/assess/{a_id}/findings", headers=headers)
     assert r.status_code == 200
     body = r.json()
-    assert body["status"] == "warning"
-    assert body["total_anomalies"] == len(body["anomalies"])
-    assert "incident_score" in {a["feature"] for a in body["anomalies"]}
-    assert 0 <= body["anomaly_score"] <= 1
+    assert body["concerns"] and body["concerns"][0]["severity"] == "urgent"
+    assert "incident_severity_score" in {c["field"] for c in body["concerns"]}
+    assert 0 <= body["unusual_combination"]["score"] <= 1
     assert body["risk_velocity"] is None  # first assessment: nothing to compare
 
 
@@ -81,7 +80,7 @@ def test_risk_velocity_compares_with_most_recent_prior(client, make_user, create
     create_assessment(headers, quality="Excellent")
     current = create_assessment(headers, quality="Good")["id"]
 
-    velocity = client.post(f"/api/risk/anomaly/{current}", headers=headers).json()["risk_velocity"]
+    velocity = client.get(f"/api/risk/assess/{current}/findings", headers=headers).json()["risk_velocity"]
     assert velocity["direction"] == "worsening"
     assert velocity["overall_delta"] > 0
 
@@ -183,8 +182,8 @@ def test_reopened_old_assessment_only_compares_with_earlier_ones(client, make_us
     middle = create_assessment(headers, quality="Excellent")["id"]
     create_assessment(headers, quality="Good")  # newer than both
 
-    first_result = client.post(f"/api/risk/anomaly/{first}", headers=headers).json()
+    first_result = client.get(f"/api/risk/assess/{first}/findings", headers=headers).json()
     assert first_result["risk_velocity"] is None  # nothing earlier
 
-    velocity = client.post(f"/api/risk/anomaly/{middle}", headers=headers).json()["risk_velocity"]
+    velocity = client.get(f"/api/risk/assess/{middle}/findings", headers=headers).json()["risk_velocity"]
     assert velocity["direction"] == "improving"  # Excellent vs the earlier Poor

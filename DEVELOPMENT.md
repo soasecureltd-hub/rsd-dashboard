@@ -46,7 +46,7 @@ App on `http://localhost:5173`.
 ### Backend (`/backend`)
 - **app/main.py** - FastAPI entry point (CORS, Sentry, routers)
 - **app/routes/** - `auth.py` and `risk.py` endpoint handlers
-- **app/services/** - Scoring + anomaly engine, ML predictions, PDF reports
+- **app/services/** - Scoring, key findings, ML threat estimates, PDF reports
 - **app/models.py** - Database models
 - **app/schemas.py** - Request/response validation
 - **app/crud.py** - Database operations
@@ -127,7 +127,8 @@ ML model in a temp directory (set up in `tests/conftest.py`), so they never
 touch `rsd.db` or your `.env`. The first run takes ~20s because the ML model is
 trained once per session.
 
-- `test_scoring.py` – scoring direction, weights, risk levels, anomaly baselines, risk velocity
+- `test_scoring.py` – scoring direction, weights, risk levels, risk velocity
+- `test_findings.py` – key findings: no false alarms, severity bands, plain language, same-facility comparison
 - `test_crud.py` – newest-first ordering and latest-prediction lookups
 - `test_auth.py` – register / login / `/me`
 - `test_risk_api.py` – endpoints end to end: ownership, anomalies, predictions, PDF report auth

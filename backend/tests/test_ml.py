@@ -23,10 +23,10 @@ def _assessment(quality, numeric):
     return {"overall_score": overall, "category_scores": categories}
 
 
-EXCELLENT = _assessment("Excellent", (95, 90, 10, 10, 20))
-GOOD = _assessment("Good", (80, 75, 30, 30, 40))
-FAIR = _assessment("Fair", (55, 55, 55, 50, 60))
-POOR = _assessment("Poor", (25, 30, 80, 80, 85))
+EXCELLENT = _assessment("Excellent", (95, 90, 10, 10, 90))  # last = response quality
+GOOD = _assessment("Good", (80, 75, 30, 30, 70))
+FAIR = _assessment("Fair", (55, 55, 55, 50, 45))
+POOR = _assessment("Poor", (25, 30, 80, 80, 15))
 
 
 def test_output_shape():

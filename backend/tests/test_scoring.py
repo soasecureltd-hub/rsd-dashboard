@@ -1,7 +1,4 @@
-"""Unit tests for risk scoring, anomaly baselines and risk velocity."""
-import subprocess
-import sys
-from pathlib import Path
+"""Unit tests for risk scoring and risk velocity."""
 
 import pytest
 
@@ -10,10 +7,7 @@ from app.services.risk_service import (
     compute_scores,
     map_score,
     risk_level,
-    run_anomaly_engine,
 )
-
-BACKEND_DIR = Path(__file__).resolve().parent.parent
 
 
 # ── map_score ─────────────────────────────────────────────────────────────────
@@ -25,7 +19,7 @@ def test_qualitative_mapping(label, expected):
     assert map_score(label) == expected
 
 
-@pytest.mark.parametrize("field", ["cctv_coverage", "cctv_functionality", "guard_count_ratio"])
+@pytest.mark.parametrize("field", ["cctv_coverage", "cctv_functionality", "guard_count_ratio", "response_time_score"])
 def test_positive_fields_are_inverted(field):
     # Higher coverage/adequacy = better security = LOWER risk.
     assert map_score(100, field) == 0
@@ -74,52 +68,6 @@ def test_weights_and_overall():
 ])
 def test_risk_level_boundaries(score, level):
     assert risk_level(score)[1] == level
-
-
-# ── Anomaly engine ────────────────────────────────────────────────────────────
-
-def test_feature_baseline_is_stable_across_processes():
-    """Baselines must not depend on PYTHONHASHSEED (regression: hash() seeding)."""
-    code = (
-        "from app.services.risk_service import _feature_baseline;"
-        "print(repr(float(_feature_baseline('cctv_uptime', 85, 5).sum())))"
-    )
-    outputs = set()
-    for seed in ("1", "2", "12345"):
-        result = subprocess.run(
-            [sys.executable, "-c", code],
-            cwd=BACKEND_DIR, capture_output=True, text=True, check=True,
-            env={**_minimal_env(), "PYTHONHASHSEED": seed},
-        )
-        outputs.add(result.stdout.strip())
-    assert len(outputs) == 1, outputs
-
-
-def _minimal_env():
-    import os
-    keep = ("SYSTEMROOT", "PATH", "TEMP", "TMP", "HOME", "USERPROFILE")
-    return {k: v for k, v in os.environ.items() if k.upper() in keep}
-
-
-def test_anomaly_engine_flags_extreme_input():
-    data = {
-        "incident_history": {"incident_severity_score": 95, "incident_type_score": 35,
-                             "response_time_score": 60},
-        "physical_security": {"cctv_functionality": 85},
-        "personnel": {"guard_count_ratio": 70},
-        "access_control": {"after_hours_security": "Good"},
-    }
-    result = run_anomaly_engine(data)
-    flagged = {a["feature"]: a for a in result["alerts"]}
-    assert flagged["incident_score"]["severity"] == "HIGH"
-    assert flagged["incident_score"]["direction"] == "above"
-
-
-def test_anomaly_engine_is_deterministic():
-    data = {"incident_history": {"incident_severity_score": 70}}
-    scores = {"Physical Security": 50, "Access Control": 50, "Personnel": 50,
-              "Incident History": 50, "Emergency Preparedness": 50}
-    assert run_anomaly_engine(data, scores) == run_anomaly_engine(data, scores)
 
 
 # ── Risk velocity ─────────────────────────────────────────────────────────────

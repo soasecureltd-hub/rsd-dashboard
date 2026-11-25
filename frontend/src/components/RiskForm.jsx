@@ -216,7 +216,7 @@ export default function RiskForm({
         </div>
 
         <div className="form-group">
-          <label>Response Time Quality (0-100)</label>
+          <label>Response Time Quality (0-100, higher = faster)</label>
           <input
             type="number"
             required

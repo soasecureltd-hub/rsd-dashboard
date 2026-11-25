@@ -2,7 +2,7 @@
 
 A web application for facility security risk assessment. Users sign in, fill in
 a security questionnaire, and get a weighted risk score, ML threat predictions,
-anomaly detection and a downloadable PDF report.
+plain-language key findings and a downloadable PDF report.
 
 > The camera / computer-vision monitoring features now live in a separate app
 > and are no longer part of this repository.
@@ -25,7 +25,8 @@ RSD/
 │   │   │   ├── auth.py             # Register / login / me
 │   │   │   └── risk.py             # Assessments, anomalies, predictions, PDF report
 │   │   └── services/
-│   │       ├── risk_service.py     # Scoring, anomaly engine, risk velocity
+│   │       ├── risk_service.py     # Scoring, risk velocity
+│   │       ├── findings_service.py # Key findings in plain language
 │   │       ├── ml_service.py       # Threat prediction model
 │   │       └── report_service.py   # PDF report generation
 │   ├── alembic/                    # Database migrations
@@ -94,9 +95,9 @@ The backend container runs migrations automatically before starting.
   Access Control (30%), Personnel (15%), Incident History (20%),
   Emergency Preparedness (10%).
 - Every score is risk-oriented: **higher = riskier**. Qualitative answers map
-  Poor=90, Fair=60, Good=30, Excellent=10. Coverage-style percentages
-  (CCTV coverage, CCTV functionality, guard adequacy) are inverted so that
-  better coverage lowers risk.
+  Poor=90, Fair=60, Good=30, Excellent=10. "Higher is better" numbers
+  (CCTV coverage, CCTV functionality, guard adequacy, response time quality)
+  are inverted (100 - value) so that a better answer lowers risk.
 - Risk levels: Low (≤40), Moderate (≤60), High (≤80), Critical (>80).
 
 ### AI Threat Estimates
@@ -113,12 +114,16 @@ The backend container runs migrations automatically before starting.
 - Trained on first use and cached to `MODEL_PATH` with a version number, so
   changing the model (`MODEL_VERSION`) retrains automatically.
 
-### Anomaly Detection
-- Per-feature z-scores against fixed baselines (HIGH / MEDIUM severity, with
-  explanations).
-- Multivariate IsolationForest over category scores, trained on the user's own
-  history once they have 5+ assessments (synthetic baseline before that).
-- Risk velocity: change versus the user's most recent previous assessment.
+### Key Findings
+- Every answer is placed on the scoring's 0-100 risk scale. **Urgent** = "Poor"
+  or ≥ 80, **Needs attention** = "Fair" or 60-79, **Strength** = "Excellent" or
+  ≤ 15. Only risk-raising answers are ever flagged; strong answers are strengths.
+- Each finding is plain language: headline, why it matters, what to do
+  (text in `services/findings_service.py`).
+- Change since the previous assessment **of the same facility**.
+- A statistical "unusual combination" check (IsolationForest over category
+  scores; the facility's own history once it has 5+ earlier assessments) is
+  shown only as a detail under "How this was calculated".
 
 ### History & Trends
 - History page listing all your assessments (newest first) with a risk-score
@@ -157,7 +162,7 @@ All `/api/risk/*` endpoints require `Authorization: Bearer <token>`.
 - `GET /api/risk/assess/{id}` - Get an assessment
 - `GET /api/risk/assessments?skip=&limit=` - List your assessments, newest first (`limit` 1–100)
 - `POST /api/risk/assess/{id}/simulate` - What-If: score an edited copy of the answers against the saved ones (nothing is saved)
-- `POST /api/risk/anomaly/{id}` - Run anomaly detection + risk velocity
+- `GET /api/risk/assess/{id}/findings` - Key findings, strengths, change since the last assessment of the facility
 - `POST /api/risk/predict/{id}` - Run ML threat predictions (stores a new prediction)
 - `GET /api/risk/predict/{id}` - Latest stored prediction, without re-running the model (404 if none)
 - `GET /api/risk/assess/{id}/report` - Download the PDF report

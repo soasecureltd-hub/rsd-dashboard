@@ -34,7 +34,7 @@ function filenameFromHeader(disposition, fallback) {
   return match ? match[1] : fallback;
 }
 
-export default function RiskResults({ assessment, anomalyResult, predictions }) {
+export default function RiskResults({ assessment, findings, predictions }) {
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState(null);
 
@@ -53,6 +53,8 @@ export default function RiskResults({ assessment, anomalyResult, predictions }) 
       .map(([key, label]) => ({ label, value: Number(predictions[key]) || 0 }))
       .sort((a, b) => b.value - a.value)[0]
     : null;
+
+  const urgentCount = findings ? findings.concerns.filter((c) => c.severity === 'urgent').length : 0;
 
   const chartData = Object.entries(assessment.category_scores || {}).map(([name, value]) => ({
     name: name.replace(' ', '\n'),
@@ -108,8 +110,8 @@ export default function RiskResults({ assessment, anomalyResult, predictions }) 
         </div>
       </div>
 
-      {/* Inline AI + anomaly summary strip */}
-      {(predictions || anomalyResult) && (
+      {/* Summary strip: top threat estimate, findings, change since last time */}
+      {(predictions || findings) && (
         <div className="insight-strip">
           {predictions && (
             <div className="insight-item">
@@ -119,34 +121,23 @@ export default function RiskResults({ assessment, anomalyResult, predictions }) 
               </span>
             </div>
           )}
-          {anomalyResult && (
-            <div className="insight-item">
-              <span className="insight-label">Anomalies Found</span>
-              <span className="insight-value" style={{ color: anomalyResult.total_anomalies > 0 ? '#ef4444' : '#10b981' }}>
-                {anomalyResult.total_anomalies}
-              </span>
-            </div>
-          )}
-          {anomalyResult && (
-            <div className="insight-item">
-              <span className="insight-label">Anomaly Score</span>
-              <span className="insight-value" style={{ color: RISK_COLOR(anomalyResult.anomaly_score * 100) }}>
-                {(anomalyResult.anomaly_score * 100).toFixed(0)}/100
-              </span>
-            </div>
-          )}
-          {anomalyResult?.multivariate_anomaly && (
-            <div className="insight-item insight-item--alert">
-              <span className="insight-label">Global Pattern</span>
-              <span className="insight-value">Anomalous</span>
-            </div>
-          )}
-          {anomalyResult?.risk_velocity?.significant && (
-            <div className={`insight-item ${anomalyResult.risk_velocity.direction === 'worsening' ? 'insight-item--alert' : 'insight-item--good'}`}>
-              <span className="insight-label">Trend vs Last</span>
+          {findings && (
+            <div className={`insight-item ${urgentCount ? 'insight-item--alert' : ''}`}>
+              <span className="insight-label">Needs Attention</span>
               <span className="insight-value">
-                {anomalyResult.risk_velocity.direction === 'worsening' ? '▲' : '▼'}{' '}
-                {Math.abs(anomalyResult.risk_velocity.overall_delta).toFixed(1)} pts
+                {findings.concerns.length === 0
+                  ? 'Nothing'
+                  : `${findings.concerns.length} area${findings.concerns.length === 1 ? '' : 's'}${urgentCount ? ` · ${urgentCount} urgent` : ''}`}
+              </span>
+            </div>
+          )}
+          {findings?.risk_velocity && (
+            <div className={`insight-item ${findings.risk_velocity.overall_delta > 0.5 ? 'insight-item--alert' : findings.risk_velocity.overall_delta < -0.5 ? 'insight-item--good' : ''}`}>
+              <span className="insight-label">Since Last Assessment</span>
+              <span className="insight-value">
+                {Math.abs(findings.risk_velocity.overall_delta) < 0.5
+                  ? 'About the same'
+                  : `${findings.risk_velocity.overall_delta > 0 ? '▲' : '▼'} ${Math.abs(findings.risk_velocity.overall_delta).toFixed(1)} pts ${findings.risk_velocity.overall_delta > 0 ? 'worse' : 'better'}`}
               </span>
             </div>
           )}

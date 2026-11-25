@@ -1,7 +1,7 @@
 import React from 'react';
 import RiskForm from '../components/RiskForm';
 import RiskResults from '../components/RiskResults';
-import AnomalyReport from '../components/AnomalyReport';
+import KeyFindings from '../components/KeyFindings';
 import AIPredictions from '../components/AIPredictions';
 import { useAssessment } from '../context/AssessmentContext';
 import { riskAPI, errorMessage } from '../api/apiClient';
@@ -9,7 +9,7 @@ import '../styles/Dashboard.css';
 
 export default function Dashboard() {
   const { state, dispatch } = useAssessment();
-  const { assessment, anomalyResult, predictions, loading, error, activeTab } = state;
+  const { assessment, findings, predictions, loading, error, activeTab } = state;
 
   const handleAssessmentSubmit = async (formData) => {
     dispatch({ type: 'SET_LOADING', payload: true });
@@ -19,14 +19,14 @@ export default function Dashboard() {
       const newAssessment = response.data;
       dispatch({ type: 'SET_ASSESSMENT', payload: newAssessment });
 
-      // Auto-run anomaly detection and ML predictions in parallel
-      const [anomalyRes, predRes] = await Promise.allSettled([
-        riskAPI.detectAnomalies(newAssessment.id),
+      // Fetch key findings and threat estimates in parallel
+      const [findingsRes, predRes] = await Promise.allSettled([
+        riskAPI.getFindings(newAssessment.id),
         riskAPI.predict(newAssessment.id),
       ]);
 
-      if (anomalyRes.status === 'fulfilled') {
-        dispatch({ type: 'SET_ANOMALY_RESULT', payload: anomalyRes.value.data });
+      if (findingsRes.status === 'fulfilled') {
+        dispatch({ type: 'SET_FINDINGS', payload: findingsRes.value.data });
       }
       if (predRes.status === 'fulfilled') {
         dispatch({ type: 'SET_PREDICTIONS', payload: predRes.value.data });
@@ -62,12 +62,17 @@ export default function Dashboard() {
               AI Predictions
             </button>
             <button
-              className={`tab ${activeTab === 'anomalies' ? 'active' : ''}`}
-              onClick={() => dispatch({ type: 'SET_TAB', payload: 'anomalies' })}
+              className={`tab ${activeTab === 'findings' ? 'active' : ''}`}
+              onClick={() => dispatch({ type: 'SET_TAB', payload: 'findings' })}
             >
-              Anomalies
-              {anomalyResult?.total_anomalies > 0 && (
-                <span className="tab-badge tab-badge--danger">{anomalyResult.total_anomalies}</span>
+              Key findings
+              {findings?.concerns?.length > 0 && (
+                <span
+                  className="tab-badge tab-badge--danger"
+                  aria-label={`${findings.concerns.length} areas need attention`}
+                >
+                  {findings.concerns.length}
+                </span>
               )}
             </button>
           </>
@@ -83,15 +88,15 @@ export default function Dashboard() {
         {activeTab === 'results' && assessment && (
           <RiskResults
             assessment={assessment}
-            anomalyResult={anomalyResult}
+            findings={findings}
             predictions={predictions}
           />
         )}
         {activeTab === 'predictions' && assessment && (
           <AIPredictions assessmentId={assessment.id} />
         )}
-        {activeTab === 'anomalies' && (
-          <AnomalyReport anomalyResult={anomalyResult} />
+        {activeTab === 'findings' && (
+          <KeyFindings findings={findings} facility={assessment?.facility_name} />
         )}
       </div>
     </div>

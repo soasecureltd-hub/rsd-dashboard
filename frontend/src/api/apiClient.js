@@ -39,7 +39,8 @@ export const riskAPI = {
   createAssessment: (data) => apiClient.post('/risk/assess', data),
   getAssessment: (id) => apiClient.get(`/risk/assess/${id}`),
   listAssessments: (skip = 0, limit = 100) => apiClient.get(`/risk/assessments?skip=${skip}&limit=${limit}`),
-  detectAnomalies: (assessmentId) => apiClient.post(`/risk/anomaly/${assessmentId}`),
+  // Plain-language key findings, change since last assessment of the facility.
+  getFindings: (assessmentId) => apiClient.get(`/risk/assess/${assessmentId}/findings`),
   predict: (assessmentId) => apiClient.post(`/risk/predict/${assessmentId}`),
   // Latest stored prediction (404 if none yet) — does not run the model.
   getPrediction: (assessmentId) => apiClient.get(`/risk/predict/${assessmentId}`),

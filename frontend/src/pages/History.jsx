@@ -119,16 +119,16 @@ export default function History({ onOpen, onStart }) {
 
   const openAssessment = async (a) => {
     // Load into the dashboard (SET_ASSESSMENT also switches to the Results tab),
-    // then fill in anomalies and the stored prediction. GET /predict never runs
+    // then fill in key findings and the stored prediction. GET /predict never runs
     // the model, so revisiting doesn't create new prediction records.
     dispatch({ type: 'SET_ASSESSMENT', payload: a });
     onOpen();
-    const [anomalyRes, predRes] = await Promise.allSettled([
-      riskAPI.detectAnomalies(a.id),
+    const [findingsRes, predRes] = await Promise.allSettled([
+      riskAPI.getFindings(a.id),
       riskAPI.getPrediction(a.id),
     ]);
-    if (anomalyRes.status === 'fulfilled') {
-      dispatch({ type: 'SET_ANOMALY_RESULT', payload: anomalyRes.value.data });
+    if (findingsRes.status === 'fulfilled') {
+      dispatch({ type: 'SET_FINDINGS', payload: findingsRes.value.data });
     }
     if (predRes.status === 'fulfilled') {
       dispatch({ type: 'SET_PREDICTIONS', payload: predRes.value.data });

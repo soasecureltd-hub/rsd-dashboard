@@ -6,7 +6,8 @@ from sqlalchemy.orm import Session
 from app import schemas, crud
 from app.db import get_db
 from app.dependencies import get_current_user
-from app.services.risk_service import compute_scores, risk_level, run_anomaly_engine, compute_risk_velocity
+from app.services.risk_service import compute_scores, risk_level, compute_risk_velocity
+from app.services.findings_service import build_findings, unusual_combination
 from app.services.ml_service import predict as ml_predict
 from app.services.report_service import generate_pdf
 
@@ -125,56 +126,53 @@ def simulate_scenario(
         raise HTTPException(status_code=500, detail="Could not run the scenario")
 
 
-@router.post("/anomaly/{assessment_id}", response_model=schemas.AnomalyDetectionResponse)
-def detect_anomalies(
+@router.get("/assess/{assessment_id}/findings", response_model=schemas.FindingsResponse)
+def get_findings(
     assessment_id: int,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    """Key findings: answers that need attention, strengths, change since the
+    previous assessment of the same facility, and an unusual-combination check."""
     db_assessment = crud.get_assessment(db, assessment_id, user_id=current_user.id)
     if not db_assessment:
         raise HTTPException(status_code=404, detail="Assessment not found")
     try:
-        # Baseline = the user's assessments made BEFORE this one (newest first).
-        # Excludes the current one and anything later, so reopening an old
-        # assessment from history gives the same answer it had at the time.
+        # Earlier assessments of the SAME facility only, made before this one,
+        # so reopening an old assessment gives the answer it had at the time.
         earlier = [
             a for a in crud.get_assessments_before(
-                db, user_id=current_user.id, before_id=assessment_id, limit=50
+                db, user_id=current_user.id, before_id=assessment_id, limit=50,
+                facility_name=db_assessment.facility_name,
             )
             if a.category_scores
         ]
-        historical_scores = [a.category_scores for a in earlier]
 
-        result = run_anomaly_engine(
-            db_assessment.input_data,
-            current_category_scores=db_assessment.category_scores,
-            historical_category_scores=historical_scores,
-        )
-
-        # Risk velocity: compare against the most recent earlier assessment
         velocity = None
-        prior = earlier[0] if earlier else None
-        if prior and db_assessment.category_scores:
+        if earlier and db_assessment.category_scores:
+            prior = earlier[0]
             velocity = compute_risk_velocity(
                 current_scores=db_assessment.category_scores,
                 current_overall=db_assessment.overall_score or 0.0,
                 previous_scores=prior.category_scores,
                 previous_overall=prior.overall_score or 0.0,
             )
+            velocity["previous_assessment_id"] = prior.id
+            velocity["previous_created_at"] = prior.created_at.isoformat() if prior.created_at else None
 
-        alerts = result["alerts"]
-        return schemas.AnomalyDetectionResponse(
-            total_anomalies=len(alerts),
-            anomalies=[schemas.AnomalyAlert(**a) for a in alerts],
-            status="success" if not alerts else "warning",
-            multivariate_anomaly=result["multivariate_anomaly"],
-            anomaly_score=result["anomaly_score"],
+        findings = build_findings(db_assessment.input_data or {})
+        combination = unusual_combination(
+            db_assessment.category_scores or {}, [a.category_scores for a in earlier]
+        )
+        return schemas.FindingsResponse(
+            concerns=findings["concerns"],
+            strengths=findings["strengths"],
             risk_velocity=velocity,
+            unusual_combination=combination,
         )
     except Exception:
-        logger.exception("Anomaly detection failed for assessment %s", assessment_id)
-        raise HTTPException(status_code=400, detail="Could not run anomaly detection")
+        logger.exception("Findings failed for assessment %s", assessment_id)
+        raise HTTPException(status_code=500, detail="Could not build the findings")
 
 
 @router.get("/assess/{assessment_id}/report")
